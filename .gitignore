@@ -1,0 +1,21 @@
+# Node
+node_modules
+dist
+*.log
+pnpm-lock.yaml
+
+# Prisma
+/prisma/migrations/
+.prisma/
+*.db
+
+# IDEs
+.vscode
+.idea
+.DS_Store
+
+# Others
+.env
+.env.local
+
+coverage

@@ -1,0 +1,172 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Usuario {
+  id_usuario         Int      @id @default(autoincrement())
+  nombre             String   @db.VarChar(50)
+  primer_apellido    String   @db.VarChar(50)
+  segundo_apellido   String?  @db.VarChar(50)
+  correo             String   @unique @db.VarChar(120)
+  password           String   @db.VarChar(255)
+  celular            String?  @db.VarChar(20)
+  rol                Rol      @default(USUARIO)
+  fecha_creacion     DateTime @default(now())
+  fecha_modificacion DateTime @updatedAt
+  estado             Estado   @default(ACTIVO)
+
+  // Relaciones
+  locales  Local[]   @relation("UsuarioLocales")
+  reservas Reserva[]
+  imagenes Imagen[]
+}
+
+model Local {
+  id_local           Int        @id @default(autoincrement())
+  nombre             String     @db.VarChar(150)
+  direccion          String     @db.VarChar(255)
+  ciudad             String     @default("Cochabamba") @db.VarChar(100)
+  tipo_billar        TipoBillar
+  latitud            Decimal?
+  longitud           Decimal?
+  id_usuario_admin   Int
+  fecha_creacion     DateTime   @default(now())
+  fecha_modificacion DateTime   @updatedAt
+  estado             Estado     @default(ACTIVO)
+
+  // Relaciones
+  admin    Usuario        @relation("UsuarioLocales", fields: [id_usuario_admin], references: [id_usuario])
+  horarios HorarioLocal[]
+  mesas    Mesa[]
+  imagenes Imagen[]
+}
+
+model HorarioLocal {
+  id_horario         Int       @id @default(autoincrement())
+  id_local           Int
+  dia_semana         DiaSemana
+  hora_apertura      String // formato "HH:mm:ss"
+  hora_cierre        String // formato "HH:mm:ss"
+  fecha_creacion     DateTime  @default(now())
+  fecha_modificacion DateTime  @updatedAt
+  estado             Estado    @default(ACTIVO)
+
+  // Relaciones
+  local Local @relation(fields: [id_local], references: [id_local])
+}
+
+model Mesa {
+  id_mesa            Int        @id @default(autoincrement())
+  numero_mesa        Int
+  id_local           Int
+  descripcion        String?    @db.VarChar(150)
+  fecha_creacion     DateTime   @default(now())
+  fecha_modificacion DateTime   @updatedAt
+  estado             EstadoMesa @default(DISPONIBLE)
+
+  // Relaciones
+  local    Local         @relation(fields: [id_local], references: [id_local])
+  reservas Reserva[]
+  bloqueos BloqueoMesa[]
+  imagenes Imagen[]
+}
+
+model Imagen {
+  id_imagen      Int      @id @default(autoincrement())
+  url_imagen     String?  @db.VarChar(255)
+  base64         String? // Prisma → TEXT en Postgres
+  fecha_creacion DateTime @default(now())
+
+  // Relaciones
+  usuarioId Int?
+  usuario   Usuario? @relation(fields: [usuarioId], references: [id_usuario])
+
+  localId Int?
+  local   Local? @relation(fields: [localId], references: [id_local])
+
+  mesaId Int?
+  mesa   Mesa? @relation(fields: [mesaId], references: [id_mesa])
+}
+
+model Reserva {
+  id_reserva         Int           @id @default(autoincrement())
+  id_usuario         Int
+  id_mesa            Int
+  fecha_reserva      DateTime // manejar solo fecha (hora = 00:00:00)
+  hora_inicio        String // formato "HH:mm:ss"
+  hora_fin           String // formato "HH:mm:ss"
+  estado_reserva     EstadoReserva @default(PENDIENTE)
+  fecha_creacion     DateTime      @default(now())
+  fecha_modificacion DateTime      @updatedAt
+
+  // Relaciones
+  usuario Usuario @relation(fields: [id_usuario], references: [id_usuario])
+  mesa    Mesa    @relation(fields: [id_mesa], references: [id_mesa])
+}
+
+model BloqueoMesa {
+  id_bloqueo     Int      @id @default(autoincrement())
+  id_mesa        Int
+  fecha_bloqueo  DateTime // manejar solo fecha
+  hora_inicio    String // formato "HH:mm:ss"
+  hora_fin       String // formato "HH:mm:ss"
+  motivo         String?  @db.VarChar(200)
+  fecha_creacion DateTime @default(now())
+
+  // Relaciones
+  mesa Mesa @relation(fields: [id_mesa], references: [id_mesa])
+}
+
+//
+// ENUMS
+//
+enum Rol {
+  USUARIO
+  ADMINISTRADOR
+}
+
+enum Estado {
+  ACTIVO
+  INACTIVO
+}
+
+enum EstadoMesa {
+  DISPONIBLE
+  MANTENIMIENTO
+  INACTIVO
+}
+
+enum EstadoReserva {
+  PENDIENTE
+  CONFIRMADA
+  CANCELADA
+  FINALIZADA
+}
+
+enum TipoBillar {
+  POOL
+  CARAMBOLA
+  SNOOKER
+  MIXTO
+}
+
+enum DiaSemana {
+  LUNES
+  MARTES
+  MIERCOLES
+  JUEVES
+  VIERNES
+  SABADO
+  DOMINGO
+}
