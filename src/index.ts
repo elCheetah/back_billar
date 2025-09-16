@@ -2,8 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
+import prisma from './config/database';
 
-// Cargar variables de entorno
 dotenv.config();
 
 const app = express();
@@ -15,10 +15,16 @@ app.use(helmet());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// End point para verificar la salud de la conexión de la API
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok' });
+// Health Check
+app.get('/health', async (req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`; // prueba rápida a DB
+    res.status(200).json({ status: 'ok', db: 'connected' });
+  } catch (error) {
+    res.status(500).json({ status: 'error', db: 'not connected' });
+  }
 });
+
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
