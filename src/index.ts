@@ -16,7 +16,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Health Check
-app.get('/health', async (req, res) => {
+app.get('/', async (req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`; // prueba rápida a DB
     res.status(200).json({ status: 'ok', db: 'connected' });
