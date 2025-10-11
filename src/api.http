@@ -1,0 +1,12 @@
+registro cliente
+{
+  "nombre": "Carlos",
+  "primer_apellido": "Fernandez",
+  "segundo_apellido": "Rojas",
+  "correo": "cliente@gmail.com",
+  "password": "@Password123",
+  "confirmar_password": "@Password123",
+  "celular": "78965412"
+}
+
+{"ok":true,"message":"Registro de cliente exitoso.","token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiY29ycmVvIjoiY2xpZW50ZUBnbWFpbC5jb20iLCJyb2wiOiJDTElFTlRFIiwibm9tYnJlQ29tcGxldG8iOiJDYXJsb3MgRmVybmFuZGV6IFJvamFzIiwiaWF0IjoxNzYwMTYyMTcwLCJleHAiOjE3NjAxNjkzNzB9.SjLuIioerWnS6dXpm8paaACanmLZj0pwOmcQVekLX_0","expiresIn":7200,"user":{"id":1,"correo":"cliente@gmail.com","nombreCompleto":"Carlos Fernandez Rojas","rol":"CLIENTE"}}
