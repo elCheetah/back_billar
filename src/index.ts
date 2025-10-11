@@ -4,6 +4,8 @@ import helmet from 'helmet';
 import dotenv from 'dotenv';
 import prisma from './config/database';
 import authRoutes from './routes/auth.routes';
+import registroPropietarioRoutes from './routes/registro-propietario.routes';
+import registroClienteRoutes from './routes/registro-cliente.routes';
 
 dotenv.config();
 
@@ -31,8 +33,8 @@ app.get('/api/health', (_req, res) => res.json({ ok: true, ts: Date.now() }));
 
 // Rutas públicas
 app.use('/api/auth', authRoutes);
-
-
+app.use('/api/registro', registroPropietarioRoutes);
+app.use('/api/registro', registroClienteRoutes);
 
 
 // Solo levantar servidor en entorno local
