@@ -47,3 +47,43 @@ POST /api/registro/propietario
     }
   ]
 }
+
+##############################
+POST /api/mesas/agregar
+Authorization: Bearer <TOKEN-PROPIETARIO>
+Content-Type: application/json
+
+{
+  "localId": 3,
+  "numero_mesa": 1,
+  "tipo_mesa": "POOL",
+  "descripcion": "Mesa POOL profesional",
+  "imagenes": [
+    { "base64": "data:image/jpeg;base64,/9j/..." },
+    { "url_remota": "https://mi-cdn.com/mesa1.jpg" }
+  ]
+}
+
+Listar mesas por local
+GET /api/mesas/listar?localId=3
+Authorization: Bearer <TOKEN-PROPIETARIO>
+
+Obtener una mesa por id
+GET /api/mesas/obtenerMesa/10
+Authorization: Bearer <TOKEN-PROPIETARIO>
+
+Actualizar o Modificar mesa
+PATCH /api/mesas/modificarMesa/10
+Authorization: Bearer <TOKEN-PROPIETARIO>
+Content-Type: application/json
+
+{
+  "numero_mesa": 2,
+  "tipo_mesa": "SNOOKER",
+  "descripcion": "Actualizada",
+  "agregar_imagenes": [{ "base64": "data:image/png;base64,iVBOR..." }],
+  "eliminar_imagen_ids": [55, 56]
+}
+Eliminar (soft delete) una mesa
+DELETE /api/mesas/eliminarMesa/10
+Authorization: Bearer <TOKEN-PROPIETARIO>

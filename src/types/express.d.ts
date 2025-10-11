@@ -2,14 +2,14 @@ import 'express';
 
 declare global {
   namespace Express {
-    interface UserToken {
+    interface UserPayload {
       id: number;
       correo: string;
       rol: 'CLIENTE' | 'PROPIETARIO' | 'ADMINISTRADOR';
-      nombreCompleto?: string;
+      nombreCompleto: string;
     }
     interface Request {
-      user?: UserToken;
+      user?: UserPayload;
     }
   }
 }

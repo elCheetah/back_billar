@@ -14,11 +14,8 @@ export const MesasController = {
   async listarPorLocal(req: Request, res: Response) {
     try {
       const localId = parseInt(String(req.query.localId), 10);
-      const page = req.query.page ? parseInt(String(req.query.page), 10) : 1;
-      const pageSize = req.query.pageSize ? parseInt(String(req.query.pageSize), 10) : 10;
-
-      const result = await MesasService.listarPorLocal(localId, req.user!.id, page, pageSize);
-      return res.json({ ok: true, ...result });
+      const mesas = await MesasService.listarPorLocal(localId, req.user!.id);
+      return res.json({ ok: true, total: mesas.length, data: mesas });
     } catch (err: any) {
       return res.status(400).json({ ok: false, message: err?.message || 'No se pudo obtener la lista de mesas.' });
     }

@@ -1,10 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
 
-export function requireRol(...rolesPermitidos: Array<'CLIENTE' | 'PROPIETARIO' | 'ADMINISTRADOR'>) {
+type Rol = 'CLIENTE' | 'PROPIETARIO' | 'ADMINISTRADOR';
+
+export function requireRol(...rolesPermitidos: Rol[]) {
   return (req: Request, res: Response, next: NextFunction) => {
-    const rol = req.user?.rol;
-    if (!rol || !rolesPermitidos.includes(rol)) {
-      return res.status(403).json({ ok: false, message: 'Acceso denegado para tu rol actual.' });
+    const user = (req as any).user as { rol?: Rol };
+    if (!user?.rol || !rolesPermitidos.includes(user.rol)) {
+      return res.status(403).json({ ok: false, message: 'Prohibido: no tienes permisos para esta operación.' });
     }
     next();
   };

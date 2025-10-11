@@ -1,3 +1,4 @@
+// src/services/registro-propietario.service.ts
 import prisma from '../config/database';
 import bcrypt from 'bcryptjs';
 import { signToken } from '../utils/jwt';
@@ -21,8 +22,8 @@ export interface RegistroPropietarioDTO {
     nombre: string;
     direccion: string;
     ciudad?: string | null;
-    gps_url: string;            // <- llega del front
-    imagenes?: ImagenEntrada[]; // opcional
+    gps_url: string;
+    imagenes?: ImagenEntrada[];
   };
   mesas: {
     numero_mesa: number;
@@ -40,18 +41,17 @@ export const RegistroPropietarioService = {
       throw new Error('El correo ya está registrado. Utiliza un correo diferente.');
     }
 
-    // 2) Unicidad de persona (solo entre propietarios), insensible a may/min
+    // 2) Unicidad de persona (solo entre PROPIETARIO), insensible a may/min.
+    //    Si no envían segundo_apellido, comparamos contra null o '' por compatibilidad.
+    const segundoApeInput = data.segundo_apellido?.trim() || null;
     const whereNombre: any = {
       rol: 'PROPIETARIO',
-      nombre: { equals: data.nombre, mode: 'insensitive' },
-      primer_apellido: { equals: data.primer_apellido, mode: 'insensitive' }
+      nombre: { equals: data.nombre.trim(), mode: 'insensitive' },
+      primer_apellido: { equals: data.primer_apellido.trim(), mode: 'insensitive' },
+      ...(segundoApeInput
+        ? { segundo_apellido: { equals: segundoApeInput, mode: 'insensitive' } }
+        : { OR: [{ segundo_apellido: null }, { segundo_apellido: '' }] })
     };
-    if (data.segundo_apellido && data.segundo_apellido.trim() !== '') {
-      whereNombre.segundo_apellido = { equals: data.segundo_apellido, mode: 'insensitive' };
-    } else {
-      // permitir “sin segundo apellido”: coincide contra null o vacío
-      whereNombre.OR = [{ segundo_apellido: null }, { segundo_apellido: '' }];
-    }
 
     const persona = await prisma.usuario.findFirst({ where: whereNombre });
     if (persona) {
@@ -63,8 +63,10 @@ export const RegistroPropietarioService = {
     if (!coords) {
       throw new Error('No se pudieron extraer coordenadas válidas desde la URL de GPS.');
     }
+    const latStr = String(coords.lat);
+    const lngStr = String(coords.lng);
 
-    // 4) Subir imágenes a Cloudinary primero (para fallar rápido si hay error de red)
+    // 4) Subir imágenes a Cloudinary primero (fail-fast si falla red)
     const rollbackPublicIds: string[] = [];
 
     const { subidas: imgsLocal, publicIds: idsLocal } =
@@ -72,13 +74,14 @@ export const RegistroPropietarioService = {
     rollbackPublicIds.push(...idsLocal);
 
     const packMesasImgs: Array<{ index: number; subidas: { url: string; public_id: string }[] }> = [];
-    for (const [i, mesa] of (data.mesas || []).entries()) {
+    const mesasInput = Array.isArray(data.mesas) ? data.mesas : [];
+    for (const [i, mesa] of mesasInput.entries()) {
       const { subidas, publicIds } = await subirMultiplesImagenesACloudinary(mesa.imagenes, 'mesas');
       packMesasImgs.push({ index: i, subidas });
       rollbackPublicIds.push(...publicIds);
     }
 
-    // 5) Transacción total (usuario -> local -> mesas -> imágenes)
+    // 5) Transacción total
     try {
       const usuario = await prisma.$transaction(async (tx) => {
         const hash = await bcrypt.hash(data.password, 10);
@@ -87,10 +90,11 @@ export const RegistroPropietarioService = {
           data: {
             nombre: data.nombre.trim(),
             primer_apellido: data.primer_apellido.trim(),
-            segundo_apellido: data.segundo_apellido?.trim() ?? '',
+            // ✅ Guardar null en vez de '' para segundo_apellido
+            segundo_apellido: segundoApeInput,
             correo: data.correo,
             password: hash,
-            celular: data.celular ?? null,
+            celular: data.celular?.trim() || null,
             rol: 'PROPIETARIO'
           },
           select: {
@@ -108,8 +112,9 @@ export const RegistroPropietarioService = {
             nombre: data.local.nombre.trim(),
             direccion: data.local.direccion.trim(),
             ciudad: (data.local.ciudad || 'Cochabamba').trim(),
-            latitud: coords.lat,   // Prisma Decimal acepta string
-            longitud: coords.lng,  // Prisma Decimal acepta string
+            // ✅ Prisma Decimal acepta string
+            latitud: latStr,
+            longitud: lngStr,
             id_usuario_admin: u.id_usuario
           },
           select: { id_local: true }
@@ -125,8 +130,8 @@ export const RegistroPropietarioService = {
           });
         }
 
-        // Mesas + imágenes por mesa
-        for (const [i, mesa] of data.mesas.entries()) {
+        // Mesas + imágenes
+        for (const [i, mesa] of mesasInput.entries()) {
           const creada = await tx.mesa.create({
             data: {
               numero_mesa: mesa.numero_mesa,
@@ -175,7 +180,7 @@ export const RegistroPropietarioService = {
         }
       };
     } catch (err) {
-      // Si falla la BD, limpiamos lo subido a Cloudinary
+      // Rollback de imágenes subidas si falla la BD
       await eliminarImagenesCloudinary(rollbackPublicIds);
       throw new Error(
         'Ocurrió un error durante el registro. No se guardaron cambios. Intenta nuevamente o contacta soporte.'
