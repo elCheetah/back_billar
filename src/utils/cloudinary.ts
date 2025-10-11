@@ -1,26 +1,17 @@
 import { v2 as cloudinary, UploadApiOptions, UploadApiResponse } from 'cloudinary';
+import { ENV } from './env';
 
-const {
-  CLOUDINARY_CLOUD_NAME,
-  CLOUDINARY_API_KEY,
-  CLOUDINARY_API_SECRET,
-  CLOUDINARY_FOLDER
-} = process.env;
-
-if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET) {
-  throw new Error('⚠️  Cloudinary no está configurado. Define CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY y CLOUDINARY_API_SECRET.');
-}
-
+// Configuración de Cloudinary
 cloudinary.config({
-  cloud_name: CLOUDINARY_CLOUD_NAME,
-  api_key: CLOUDINARY_API_KEY,
-  api_secret: CLOUDINARY_API_SECRET,
+  cloud_name: ENV.CLOUDINARY_CLOUD_NAME,
+  api_key: ENV.CLOUDINARY_API_KEY,
+  api_secret: ENV.CLOUDINARY_API_SECRET,
   secure: true
 });
 
 export type ImagenEntrada = {
-  base64?: string | null;      // data URI o base64 plano (se recomienda data URI)
-  url_remota?: string | null;  // URL pública accesible
+  base64?: string | null;      // data URI o base64 (recomendado usar data URI)
+  url_remota?: string | null;  // URL pública (opcional)
 };
 
 export type ImagenSalida = {
@@ -28,21 +19,20 @@ export type ImagenSalida = {
   public_id: string;
 };
 
+// Config base
 const baseOptions: UploadApiOptions = {
-  folder: CLOUDINARY_FOLDER || 'billar',
+  folder: ENV.CLOUDINARY_FOLDER || 'billar',
   resource_type: 'image',
   overwrite: false
 };
 
 /**
- * Sube UNA imagen a Cloudinary. Acepta `base64` (data URI recomendable) o `url_remota`.
- * Retorna { url, public_id }.
+ * 📤 Sube UNA imagen a Cloudinary.
+ * Si la carpeta no existe, Cloudinary la crea automáticamente.
  */
 export async function subirImagenACloudinary(img: ImagenEntrada, subcarpeta: string): Promise<ImagenSalida> {
   const source = img.base64 || img.url_remota;
-  if (!source) {
-    throw new Error('No se envió contenido de imagen (base64 o url_remota).');
-  }
+  if (!source) throw new Error('❌ No se envió contenido de imagen (base64 o url_remota).');
 
   const opts: UploadApiOptions = { ...baseOptions };
   if (subcarpeta) {
@@ -54,7 +44,7 @@ export async function subirImagenACloudinary(img: ImagenEntrada, subcarpeta: str
 }
 
 /**
- * Sube muchas imágenes en paralelo y devuelve arrays de {url, public_id} y de public_ids por si quieres limpiar luego.
+ * 📤 Sube múltiples imágenes y devuelve arrays de URLs y public_ids.
  */
 export async function subirMultiplesImagenesACloudinary(
   imagenes: ImagenEntrada[] | undefined,
@@ -69,7 +59,7 @@ export async function subirMultiplesImagenesACloudinary(
 }
 
 /**
- * Borra recursos por public_id (para rollback compensatorio si falla BD).
+ * 🗑️ Borra recursos de Cloudinary (rollback si falla BD, por ejemplo).
  */
 export async function eliminarImagenesCloudinary(publicIds: string[]): Promise<void> {
   if (!publicIds.length) return;
