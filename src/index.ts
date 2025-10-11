@@ -6,6 +6,7 @@ import prisma from './config/database';
 import { subirImagenACloudinary } from './utils/cloudinary';
 
 import authRoutes from './routes/auth.routes';
+import passwordRecoveryRoutes from './routes/password-recovery.routes';
 
 import registroPropietarioRoutes from './routes/registro-propietario.routes';
 import registroClienteRoutes from './routes/registro-cliente.routes';
@@ -48,6 +49,7 @@ app.post('/api/test/cloudinary', async (req, res) => {
 
 // Rutas públicas
 app.use('/api/auth', authRoutes);
+app.use('/api/auth/recovery', passwordRecoveryRoutes);
 app.use('/api/registro', registroPropietarioRoutes);
 app.use('/api/registro', registroClienteRoutes);
 app.use('/api/mesas', mesasRoutes);

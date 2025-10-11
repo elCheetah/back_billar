@@ -30,6 +30,7 @@ model Usuario {
   locales  Local[]   @relation("UsuarioLocales")
   reservas Reserva[]
   imagenes Imagen[]
+  passwordResets PasswordReset[]
 }
 
 model Local {
@@ -170,4 +171,19 @@ enum DiaSemana {
   VIERNES
   SABADO
   DOMINGO
+}
+
+model PasswordReset {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  codeHash   String   @db.VarChar(100) // bcrypt del código (no se guarda en texto plano)
+  expiresAt  DateTime
+  usedAt     DateTime?
+  attempts   Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  user Usuario @relation(fields: [userId], references: [id_usuario])
+
+  @@index([userId])
+  @@index([expiresAt])
 }
