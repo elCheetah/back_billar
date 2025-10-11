@@ -4,10 +4,7 @@ import { RegistroPropietarioController } from '../controllers/registro-propietar
 
 const router = Router();
 
-/**
- * POST /api/registro/propietario
- * Registra un propietario con local, mesas e imágenes.
- */
+// POST /api/registro/propietario
 router.post('/propietario', validarRegistroPropietario, RegistroPropietarioController.crear);
 
 export default router;

@@ -1,47 +1,26 @@
 import { body } from 'express-validator';
-import { REGEX_PASSWORD } from '../validators/expresiones';
 import { validateRequest } from './validate.middleware';
+import { REGEX_PASSWORD } from '../validators/expresiones';
+import { esUrlGpsValida } from '../utils/gps';
 
-/**
- * Middleware: valida todos los campos del registro de propietario
- * (sólo estructura, formato y contraseñas)
- */
+const TIPOS_MESA = ['POOL', 'CARAMBOLA', 'SNOOKER', 'MIXTO'] as const;
+
 export const validarRegistroPropietario = [
-  body('nombre')
-    .isString()
-    .trim()
-    .notEmpty()
-    .withMessage('El nombre es obligatorio.'),
-
-  body('primer_apellido')
-    .isString()
-    .trim()
-    .notEmpty()
-    .withMessage('El primer apellido es obligatorio.'),
-
-  body('segundo_apellido')
-    .optional({ nullable: true })
-    .isString()
-    .trim(),
-
-  body('correo')
-    .isString()
-    .trim()
-    .isEmail()
-    .withMessage('El correo no es válido.'),
-
+  // Datos de usuario
+  body('nombre').isString().trim().notEmpty().withMessage('El nombre es obligatorio.'),
+  body('primer_apellido').isString().trim().notEmpty().withMessage('El primer apellido es obligatorio.'),
+  body('segundo_apellido').optional({ nullable: true }).isString().trim(),
+  body('correo').isString().trim().isEmail().withMessage('El correo no es válido.'),
   body('password')
     .isString()
     .matches(REGEX_PASSWORD)
     .withMessage(
-      'La contraseña debe tener al menos 6 caracteres, incluir 1 mayúscula, 1 minúscula, 1 número y 1 carácter especial.'
+      'La contraseña debe tener al menos 6 caracteres, incluir 1 mayúscula, 1 minúscula, 1 número, 1 carácter especial y no contener espacios.'
     ),
-
   body('confirmar_password')
     .isString()
     .custom((v, { req }) => v === req.body.password)
     .withMessage('Las contraseñas no coinciden.'),
-
   body('celular')
     .optional({ nullable: true })
     .isString()
@@ -49,47 +28,60 @@ export const validarRegistroPropietario = [
     .isLength({ min: 6, max: 20 })
     .withMessage('El número de celular no es válido.'),
 
-  body('local')
+  // Datos del local
+  body('local').notEmpty().isObject().withMessage('El campo local es obligatorio.'),
+  body('local.nombre').isString().trim().isLength({ min: 2 }).withMessage('El nombre del local es obligatorio.'),
+  body('local.direccion').isString().trim().isLength({ min: 3 }).withMessage('La dirección del local es obligatoria.'),
+  body('local.ciudad').optional({ nullable: true }).isString().trim(),
+  body('local.gps_url')
+    .isString()
+    .trim()
     .notEmpty()
-    .isObject()
-    .withMessage('El campo local es obligatorio.'),
+    .withMessage('La URL del GPS es obligatoria.')
+    .bail()
+    .custom((url) => esUrlGpsValida(url))
+    .withMessage('La URL de GPS no contiene coordenadas válidas.'),
 
-  body('local.nombre')
-    .isString()
-    .trim()
-    .isLength({ min: 2 })
-    .withMessage('El nombre del local es obligatorio.'),
-
-  body('local.direccion')
-    .isString()
-    .trim()
-    .isLength({ min: 3 })
-    .withMessage('La dirección del local es obligatoria.'),
-
-  body('local.tipo_billar')
-    .isString()
-    .isIn(['POOL', 'CARAMBOLA', 'SNOOKER', 'MIXTO'])
-    .withMessage('El tipo de billar es inválido.'),
-
-  // imágenes opcionales
-  body('local.imagenes')
+  // Imágenes del local (opcionales)
+  body('local.imagenes').optional().isArray().withMessage('local.imagenes debe ser un arreglo.'),
+  body('local.imagenes.*')
     .optional()
-    .isArray()
-    .withMessage('El campo local.imagenes debe ser un arreglo.'),
+    .custom((img) => {
+      if (!img) return false;
+      if (typeof img !== 'object') return false;
+      return Boolean(img.base64 || img.url_remota);
+    })
+    .withMessage('Cada imagen del local debe tener base64 o url_remota.'),
 
+  // Mesas (mínimo 1)
+  body('mesas').isArray({ min: 1 }).withMessage('Debes registrar al menos 1 mesa.'),
+  body('mesas.*.numero_mesa').isInt({ min: 1 }).withMessage('El número de mesa debe ser entero >= 1.'),
+  body('mesas.*.tipo_mesa')
+    .isString()
+    .isIn(TIPOS_MESA)
+    .withMessage('El tipo de mesa es inválido.'),
+  body('mesas.*.descripcion').optional({ nullable: true }).isString().trim(),
+  body('mesas.*.imagenes').optional().isArray().withMessage('Las imágenes de la mesa deben venir en un arreglo.'),
+  body('mesas.*.imagenes.*')
+    .optional()
+    .custom((img) => {
+      if (!img) return false;
+      if (typeof img !== 'object') return false;
+      return Boolean(img.base64 || img.url_remota);
+    })
+    .withMessage('Cada imagen de mesa debe tener base64 o url_remota.'),
+
+  // Sin números de mesa duplicados en la misma petición
   body('mesas')
-    .optional()
-    .isArray()
-    .withMessage('El campo mesas debe ser un arreglo.'),
-
-  body('mesas.*.numero_mesa')
-    .optional()
-    .isInt({ min: 1 })
-    .withMessage('El número de mesa debe ser entero >= 1.'),
-
-  body('mesas.*.descripcion')
-    .optional({ nullable: true })
-    .isString(),
+    .custom((mesas) => {
+      const set = new Set<number>();
+      for (const m of mesas || []) {
+        if (set.has(m.numero_mesa)) return false;
+        set.add(m.numero_mesa);
+      }
+      return true;
+    })
+    .withMessage('Existen números de mesa duplicados.'),
 
   validateRequest
 ];

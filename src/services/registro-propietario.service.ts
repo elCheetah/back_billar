@@ -1,11 +1,14 @@
 import prisma from '../config/database';
 import bcrypt from 'bcryptjs';
 import { signToken } from '../utils/jwt';
+import { parseGpsFromUrl } from '../utils/gps';
 import {
   ImagenEntrada,
   subirMultiplesImagenesACloudinary,
   eliminarImagenesCloudinary
 } from '../utils/cloudinary';
+
+type TipoMesa = 'POOL' | 'CARAMBOLA' | 'SNOOKER' | 'MIXTO';
 
 export interface RegistroPropietarioDTO {
   nombre: string;
@@ -18,13 +21,12 @@ export interface RegistroPropietarioDTO {
     nombre: string;
     direccion: string;
     ciudad?: string | null;
-    tipo_billar: 'POOL' | 'CARAMBOLA' | 'SNOOKER' | 'MIXTO';
-    latitud?: any | null;
-    longitud?: any | null;
-    imagenes?: ImagenEntrada[];
+    gps_url: string;            // <- llega del front
+    imagenes?: ImagenEntrada[]; // opcional
   };
-  mesas?: {
+  mesas: {
     numero_mesa: number;
+    tipo_mesa: TipoMesa;
     descripcion?: string | null;
     imagenes?: ImagenEntrada[];
   }[];
@@ -32,54 +34,60 @@ export interface RegistroPropietarioDTO {
 
 export const RegistroPropietarioService = {
   async registrar(data: RegistroPropietarioDTO) {
-    // ✅ Correo único global
+    // 1) Correo único global
     const correoExistente = await prisma.usuario.findUnique({ where: { correo: data.correo } });
     if (correoExistente) {
-      throw new Error('El correo ya está registrado. Usa otro correo electrónico.');
+      throw new Error('El correo ya está registrado. Utiliza un correo diferente.');
     }
 
-    // ✅ Nombre único solo entre propietarios
-    const filtros: any = {
+    // 2) Unicidad de persona (solo entre propietarios), insensible a may/min
+    const whereNombre: any = {
       rol: 'PROPIETARIO',
       nombre: { equals: data.nombre, mode: 'insensitive' },
       primer_apellido: { equals: data.primer_apellido, mode: 'insensitive' }
     };
     if (data.segundo_apellido && data.segundo_apellido.trim() !== '') {
-      filtros.segundo_apellido = { equals: data.segundo_apellido, mode: 'insensitive' };
+      whereNombre.segundo_apellido = { equals: data.segundo_apellido, mode: 'insensitive' };
     } else {
-      filtros.OR = [{ segundo_apellido: null }, { segundo_apellido: '' }];
+      // permitir “sin segundo apellido”: coincide contra null o vacío
+      whereNombre.OR = [{ segundo_apellido: null }, { segundo_apellido: '' }];
     }
 
-    const existePropietario = await prisma.usuario.findFirst({ where: filtros });
-    if (existePropietario) {
-      throw new Error('La persona ya está registrada como propietario.');
+    const persona = await prisma.usuario.findFirst({ where: whereNombre });
+    if (persona) {
+      throw new Error('La persona ya está registrada como PROPIETARIO en el sistema.');
     }
 
-    // ✅ Subir imágenes a Cloudinary
-    const rollbackIds: string[] = [];
+    // 3) Parsear lat/lng desde la URL de GPS
+    const coords = parseGpsFromUrl(data.local.gps_url);
+    if (!coords) {
+      throw new Error('No se pudieron extraer coordenadas válidas desde la URL de GPS.');
+    }
+
+    // 4) Subir imágenes a Cloudinary primero (para fallar rápido si hay error de red)
+    const rollbackPublicIds: string[] = [];
+
     const { subidas: imgsLocal, publicIds: idsLocal } =
       await subirMultiplesImagenesACloudinary(data.local.imagenes, 'locales');
-    rollbackIds.push(...idsLocal);
+    rollbackPublicIds.push(...idsLocal);
 
-    const mesasImgs: any[] = [];
-    if (data.mesas?.length) {
-      for (const [i, mesa] of data.mesas.entries()) {
-        const { subidas, publicIds } = await subirMultiplesImagenesACloudinary(mesa.imagenes, 'mesas');
-        mesasImgs.push({ index: i, subidas });
-        rollbackIds.push(...publicIds);
-      }
+    const packMesasImgs: Array<{ index: number; subidas: { url: string; public_id: string }[] }> = [];
+    for (const [i, mesa] of (data.mesas || []).entries()) {
+      const { subidas, publicIds } = await subirMultiplesImagenesACloudinary(mesa.imagenes, 'mesas');
+      packMesasImgs.push({ index: i, subidas });
+      rollbackPublicIds.push(...publicIds);
     }
 
-    // ✅ Transacción completa
+    // 5) Transacción total (usuario -> local -> mesas -> imágenes)
     try {
       const usuario = await prisma.$transaction(async (tx) => {
         const hash = await bcrypt.hash(data.password, 10);
 
-        const nuevoUsuario = await tx.usuario.create({
+        const u = await tx.usuario.create({
           data: {
             nombre: data.nombre.trim(),
             primer_apellido: data.primer_apellido.trim(),
-            segundo_apellido: data.segundo_apellido ?? '',
+            segundo_apellido: data.segundo_apellido?.trim() ?? '',
             correo: data.correo,
             password: hash,
             celular: data.celular ?? null,
@@ -95,57 +103,60 @@ export const RegistroPropietarioService = {
           }
         });
 
-        const nuevoLocal = await tx.local.create({
+        const local = await tx.local.create({
           data: {
             nombre: data.local.nombre.trim(),
             direccion: data.local.direccion.trim(),
-            ciudad: data.local.ciudad ?? 'Cochabamba',
-            tipo_billar: data.local.tipo_billar,
-            latitud: data.local.latitud ?? null,
-            longitud: data.local.longitud ?? null,
-            id_usuario_admin: nuevoUsuario.id_usuario
+            ciudad: (data.local.ciudad || 'Cochabamba').trim(),
+            latitud: coords.lat,   // Prisma Decimal acepta string
+            longitud: coords.lng,  // Prisma Decimal acepta string
+            id_usuario_admin: u.id_usuario
           },
           select: { id_local: true }
         });
 
+        // Imágenes del local
         if (imgsLocal.length) {
           await tx.imagen.createMany({
             data: imgsLocal.map((img) => ({
               url_imagen: img.url,
-              localId: nuevoLocal.id_local
+              localId: local.id_local
             }))
           });
         }
 
-        if (data.mesas?.length) {
-          for (const [i, mesa] of data.mesas.entries()) {
-            const mesaCreada = await tx.mesa.create({
-              data: {
-                numero_mesa: mesa.numero_mesa,
-                descripcion: mesa.descripcion ?? null,
-                id_local: nuevoLocal.id_local
-              },
-              select: { id_mesa: true }
-            });
+        // Mesas + imágenes por mesa
+        for (const [i, mesa] of data.mesas.entries()) {
+          const creada = await tx.mesa.create({
+            data: {
+              numero_mesa: mesa.numero_mesa,
+              descripcion: mesa.descripcion ?? null,
+              tipo_mesa: mesa.tipo_mesa,
+              id_local: local.id_local
+            },
+            select: { id_mesa: true }
+          });
 
-            const pack = mesasImgs.find((p) => p.index === i);
-            if (pack?.subidas?.length) {
-              await tx.imagen.createMany({
-                data: pack.subidas.map((img: any) => ({
-                  url_imagen: img.url,
-                  mesaId: mesaCreada.id_mesa
-                }))
-              });
-            }
+          const fotos = packMesasImgs.find((p) => p.index === i)?.subidas || [];
+          if (fotos.length) {
+            await tx.imagen.createMany({
+              data: fotos.map((img) => ({
+                url_imagen: img.url,
+                mesaId: creada.id_mesa
+              }))
+            });
           }
         }
 
-        return nuevoUsuario;
+        return u;
       });
 
+      // 6) Token + respuesta
       const nombreCompleto = [usuario.nombre, usuario.primer_apellido, usuario.segundo_apellido]
         .filter(Boolean)
-        .join(' ');
+        .join(' ')
+        .trim();
+
       const { token, expiresIn } = signToken({
         id: usuario.id_usuario,
         correo: usuario.correo,
@@ -163,9 +174,12 @@ export const RegistroPropietarioService = {
           rol: usuario.rol
         }
       };
-    } catch (error) {
-      await eliminarImagenesCloudinary(rollbackIds);
-      throw new Error('Ocurrió un error al registrar el propietario. Intenta nuevamente.');
+    } catch (err) {
+      // Si falla la BD, limpiamos lo subido a Cloudinary
+      await eliminarImagenesCloudinary(rollbackPublicIds);
+      throw new Error(
+        'Ocurrió un error durante el registro. No se guardaron cambios. Intenta nuevamente o contacta soporte.'
+      );
     }
   }
 };
