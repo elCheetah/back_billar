@@ -9,6 +9,7 @@ import authRoutes from './routes/auth.routes';
 
 import registroPropietarioRoutes from './routes/registro-propietario.routes';
 import registroClienteRoutes from './routes/registro-cliente.routes';
+import mesasRoutes from './routes/mesas.routes';
 
 dotenv.config();
 
@@ -49,7 +50,7 @@ app.post('/api/test/cloudinary', async (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/registro', registroPropietarioRoutes);
 app.use('/api/registro', registroClienteRoutes);
-
+app.use('/api/mesas', mesasRoutes);
 
 // Solo levantar servidor en entorno local
 if (process.env.NODE_ENV !== 'production') {
