@@ -1,7 +1,9 @@
+export type Rol = "CLIENTE" | "PROPIETARIO" | "ADMINISTRADOR";
+
 export interface JwtPayloadUser {
   id: number;
   correo: string;
-  rol: 'USUARIO' | 'ADMINISTRADOR';
+  rol: Rol;
   nombreCompleto: string;
 }
 
@@ -17,6 +19,6 @@ export interface LoginResponseDTO {
     id: number;
     correo: string;
     nombreCompleto: string;
-    rol: 'USUARIO' | 'ADMINISTRADOR';
+    rol: Rol;
   };
 }
