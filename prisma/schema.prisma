@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -12,24 +6,24 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
-
 model Usuario {
-  id_usuario         Int      @id @default(autoincrement())
-  nombre             String   @db.VarChar(50)
-  primer_apellido    String   @db.VarChar(50)
-  segundo_apellido   String?  @db.VarChar(50)
-  correo             String   @unique @db.VarChar(120)
-  password           String   @db.VarChar(255)
-  celular            String?  @db.VarChar(20)
-  rol                Rol      @default(CLIENTE)
-  fecha_creacion     DateTime @default(now())
-  fecha_modificacion DateTime @updatedAt
-  estado             Estado   @default(ACTIVO)
+  id_usuario           Int       @id @default(autoincrement())
+  nombre               String    @db.VarChar(50)
+  primer_apellido      String    @db.VarChar(50)
+  segundo_apellido     String?   @db.VarChar(50)
+  correo               String    @unique @db.VarChar(120)
+  password             String    @db.VarChar(255)
+  celular              String?   @db.VarChar(20)
+  rol                  Rol       @default(CLIENTE)
+  estado               Estado    @default(ACTIVO)
+  fecha_creacion       DateTime  @default(now())
+  fecha_modificacion   DateTime  @updatedAt
 
-  // Relaciones
-  locales  Local[]   @relation("UsuarioLocales")
-  reservas Reserva[]
-  imagenes Imagen[]
+  locales        Local[]         @relation("UsuarioLocales")
+  reservas       Reserva[]
+  pagos          Pago[]
+  penalizaciones Penalizacion[]
+  imagenes       Imagen[]
   passwordResets PasswordReset[]
 }
 
@@ -38,58 +32,58 @@ model Local {
   nombre             String     @db.VarChar(150)
   direccion          String     @db.VarChar(255)
   ciudad             String     @default("Cochabamba") @db.VarChar(100)
-  latitud            Decimal?
-  longitud           Decimal?
+  latitud            Decimal?   @db.Decimal(9,6)
+  longitud           Decimal?   @db.Decimal(9,6)
+  qr_pago_url        String?    @db.VarChar(255)              // QR del propietario
+  descuento_global   Decimal    @db.Decimal(5,2) @default(0)  // % 0–100, default 0
   id_usuario_admin   Int
+  estado             Estado     @default(ACTIVO)
   fecha_creacion     DateTime   @default(now())
   fecha_modificacion DateTime   @updatedAt
-  estado             Estado     @default(ACTIVO)
 
-  // Relaciones
-  admin    Usuario        @relation("UsuarioLocales", fields: [id_usuario_admin], references: [id_usuario])
-  horarios HorarioLocal[]
-  mesas    Mesa[]
-  imagenes Imagen[]
+  admin     Usuario        @relation("UsuarioLocales", fields: [id_usuario_admin], references: [id_usuario])
+  horarios  HorarioLocal[]
+  mesas     Mesa[]
+  imagenes  Imagen[]
 }
 
 model HorarioLocal {
   id_horario         Int       @id @default(autoincrement())
   id_local           Int
   dia_semana         DiaSemana
-  hora_apertura      String // formato "HH:mm:ss"
-  hora_cierre        String // formato "HH:mm:ss"
+  hora_apertura      DateTime  @db.Time
+  hora_cierre        DateTime  @db.Time
+  estado             Estado    @default(ACTIVO)
   fecha_creacion     DateTime  @default(now())
   fecha_modificacion DateTime  @updatedAt
-  estado             Estado    @default(ACTIVO)
 
-  // Relaciones
   local Local @relation(fields: [id_local], references: [id_local])
 }
-
 model Mesa {
   id_mesa            Int        @id @default(autoincrement())
   numero_mesa        Int
   id_local           Int
-  descripcion        String?    @db.VarChar(150)
+  descripcion        String?    @db.Text
   tipo_mesa          TipoMesa
+  precio_hora        Decimal    @db.Decimal(10,2)              
+  estado             EstadoMesa @default(DISPONIBLE)
   fecha_creacion     DateTime   @default(now())
   fecha_modificacion DateTime   @updatedAt
-  estado             EstadoMesa @default(DISPONIBLE)
 
-  // Relaciones
-  local    Local         @relation(fields: [id_local], references: [id_local])
-  reservas Reserva[]
-  bloqueos BloqueoMesa[]
-  imagenes Imagen[]
+  local     Local         @relation(fields: [id_local], references: [id_local])
+  reservas  Reserva[]
+  bloqueos  BloqueoMesa[]
+  imagenes  Imagen[]
+
+  @@unique([id_local, numero_mesa])
 }
 
 model Imagen {
   id_imagen      Int      @id @default(autoincrement())
   url_imagen     String?  @db.VarChar(255)
-  base64         String? // Prisma → TEXT en Postgres
+  base64         String?  @db.Text
   fecha_creacion DateTime @default(now())
 
-  // Relaciones
   usuarioId Int?
   usuario   Usuario? @relation(fields: [usuarioId], references: [id_usuario])
 
@@ -101,41 +95,90 @@ model Imagen {
 }
 
 model Reserva {
-  id_reserva         Int           @id @default(autoincrement())
-  id_usuario         Int
-  id_mesa            Int
-  fecha_reserva      DateTime // manejar solo fecha (hora = 00:00:00)
-  hora_inicio        String // formato "HH:mm:ss"
-  hora_fin           String // formato "HH:mm:ss"
-  estado_reserva     EstadoReserva @default(PENDIENTE)
-  fecha_creacion     DateTime      @default(now())
-  fecha_modificacion DateTime      @updatedAt
+  id_reserva            Int           @id @default(autoincrement())
+  id_usuario            Int
+  id_mesa               Int
+  fecha_reserva         DateTime      @db.Date
+  hora_inicio           DateTime      @db.Time
+  hora_fin              DateTime      @db.Time
+  monto_estimado        Decimal?      @db.Decimal(10,2)         // precio_hora * horas - descuento + %penalizacion
+  estado_reserva        EstadoReserva @default(PENDIENTE)
+  penalizacion_aplicada Decimal?      @db.Decimal(5,2) @default(0) // % aplicado
+  fecha_creacion        DateTime      @default(now())
+  fecha_modificacion    DateTime      @updatedAt
 
-  // Relaciones
-  usuario Usuario @relation(fields: [id_usuario], references: [id_usuario])
-  mesa    Mesa    @relation(fields: [id_mesa], references: [id_mesa])
+  usuario  Usuario @relation(fields: [id_usuario], references: [id_usuario])
+  mesa     Mesa    @relation(fields: [id_mesa], references: [id_mesa])
+  pago     Pago?   @relation("ReservaPago")
+  penalizaciones Penalizacion[]
+
+  @@index([id_mesa, fecha_reserva])
+  @@index([id_usuario, fecha_reserva])
+}
+
+model Pago {
+  id_pago              Int         @id @default(autoincrement())
+  id_reserva           Int         @unique
+  id_usuario           Int
+  monto                Decimal     @db.Decimal(10,2)
+  comprobante_url      String?     @db.VarChar(255)
+  fecha_subida         DateTime?   @default(now())
+  fecha_confirmacion   DateTime?
+  estado_pago          EstadoPago  @default(PENDIENTE)
+
+  usuario  Usuario @relation(fields: [id_usuario], references: [id_usuario])
+  reserva  Reserva @relation("ReservaPago", fields: [id_reserva], references: [id_reserva])
+
+  @@index([id_usuario])
+  @@index([estado_pago])
+}
+model Penalizacion {
+  id_penalizacion    Int                 @id @default(autoincrement())
+  id_usuario         Int
+  id_reserva         Int?
+  porcentaje         Decimal             @db.Decimal(5,2) @default(0)
+  bloqueo_hasta      DateTime?
+  estado             EstadoPenalizacion  @default(ACTIVA)
+  fecha_penalizacion DateTime            @default(now())
+
+  usuario  Usuario  @relation(fields: [id_usuario], references: [id_usuario])
+  reserva  Reserva? @relation(fields: [id_reserva], references: [id_reserva])
+
+  @@index([id_usuario])
+  @@index([fecha_penalizacion])
 }
 
 model BloqueoMesa {
   id_bloqueo     Int      @id @default(autoincrement())
   id_mesa        Int
-  fecha_bloqueo  DateTime // manejar solo fecha
-  hora_inicio    String // formato "HH:mm:ss"
-  hora_fin       String // formato "HH:mm:ss"
-  motivo         String?  @db.VarChar(200)
+  fecha_bloqueo  DateTime @db.Date
+  hora_inicio    DateTime @db.Time
+  hora_fin       DateTime @db.Time
+  motivo         String?  @db.Text
   fecha_creacion DateTime @default(now())
 
-  // Relaciones
   mesa Mesa @relation(fields: [id_mesa], references: [id_mesa])
-}
 
-//
-// ENUMS
-//
+  @@index([id_mesa, fecha_bloqueo])
+}
+model PasswordReset {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  codeHash   String   @db.VarChar(100)
+  expiresAt  DateTime
+  usedAt     DateTime?
+  attempts   Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  user Usuario @relation(fields: [userId], references: [id_usuario])
+
+  @@index([userId])
+  @@index([expiresAt])
+}
 enum Rol {
-  CLIENTE         // jugador normal (cliente)
-  PROPIETARIO     // dueño de un local (admin local)
-  ADMINISTRADOR   // admin general del sistema (gestiona todo)
+  CLIENTE
+  PROPIETARIO
+  ADMINISTRADOR
 }
 
 enum Estado {
@@ -145,6 +188,7 @@ enum Estado {
 
 enum EstadoMesa {
   DISPONIBLE
+  OCUPADO
   MANTENIMIENTO
   INACTIVO
 }
@@ -154,6 +198,18 @@ enum EstadoReserva {
   CONFIRMADA
   CANCELADA
   FINALIZADA
+}
+
+enum EstadoPago {
+  PENDIENTE
+  APROBADO
+  RECHAZADO
+}
+
+enum EstadoPenalizacion {
+  ACTIVA
+  LEVANTADA
+  EXPIRADA
 }
 
 enum TipoMesa {
@@ -171,19 +227,4 @@ enum DiaSemana {
   VIERNES
   SABADO
   DOMINGO
-}
-
-model PasswordReset {
-  id         Int      @id @default(autoincrement())
-  userId     Int
-  codeHash   String   @db.VarChar(100) // bcrypt del código (no se guarda en texto plano)
-  expiresAt  DateTime
-  usedAt     DateTime?
-  attempts   Int      @default(0)
-  createdAt  DateTime @default(now())
-
-  user Usuario @relation(fields: [userId], references: [id_usuario])
-
-  @@index([userId])
-  @@index([expiresAt])
 }
