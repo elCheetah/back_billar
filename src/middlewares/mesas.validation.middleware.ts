@@ -7,6 +7,7 @@ export const validarCrearMesa = [
   body('localId').isInt({ min: 1 }).withMessage('localId es obligatorio y debe ser entero.'),
   body('numero_mesa').isInt({ min: 1 }).withMessage('numero_mesa debe ser entero ≥ 1.'),
   body('tipo_mesa').isString().isIn(TIPOS_MESA).withMessage('tipo_mesa no es válido.'),
+  body('precio_hora').exists().withMessage('precio_hora es obligatorio.').bail().isFloat({ min: 0 }).withMessage('precio_hora debe ser un número ≥ 0.'),
   body('descripcion').optional({ nullable: true }).isString().trim(),
   body('imagenes').optional().isArray().withMessage('imagenes debe ser un arreglo.'),
   body('imagenes.*')
@@ -20,6 +21,7 @@ export const validarActualizarMesa = [
   param('id').isInt({ min: 1 }).withMessage('Id de mesa inválido.'),
   body('numero_mesa').optional().isInt({ min: 1 }).withMessage('numero_mesa debe ser entero ≥ 1.'),
   body('tipo_mesa').optional().isString().isIn(TIPOS_MESA).withMessage('tipo_mesa inválido.'),
+  body('precio_hora').optional().isFloat({ min: 0 }).withMessage('precio_hora debe ser un número ≥ 0.'),
   body('descripcion').optional({ nullable: true }).isString().trim(),
   body('agregar_imagenes').optional().isArray().withMessage('agregar_imagenes debe ser un arreglo.'),
   body('agregar_imagenes.*')

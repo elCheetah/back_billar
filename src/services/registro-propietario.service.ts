@@ -1,4 +1,3 @@
-// src/services/registro-propietario.service.ts
 import prisma from '../config/database';
 import bcrypt from 'bcryptjs';
 import { signToken } from '../utils/jwt';
@@ -28,6 +27,7 @@ export interface RegistroPropietarioDTO {
   mesas: {
     numero_mesa: number;
     tipo_mesa: TipoMesa;
+    precio_hora: number;
     descripcion?: string | null;
     imagenes?: ImagenEntrada[];
   }[];
@@ -35,14 +35,11 @@ export interface RegistroPropietarioDTO {
 
 export const RegistroPropietarioService = {
   async registrar(data: RegistroPropietarioDTO) {
-    // 1) Correo único global
     const correoExistente = await prisma.usuario.findUnique({ where: { correo: data.correo } });
     if (correoExistente) {
-      throw new Error('El correo ya está registrado. Utiliza un correo diferente.');
+      throw new Error('El correo ya está registrado. Usa un correo diferente.');
     }
 
-    // 2) Unicidad de persona (solo entre PROPIETARIO), insensible a may/min.
-    //    Si no envían segundo_apellido, comparamos contra null o '' por compatibilidad.
     const segundoApeInput = data.segundo_apellido?.trim() || null;
     const whereNombre: any = {
       rol: 'PROPIETARIO',
@@ -55,18 +52,16 @@ export const RegistroPropietarioService = {
 
     const persona = await prisma.usuario.findFirst({ where: whereNombre });
     if (persona) {
-      throw new Error('La persona ya está registrada como PROPIETARIO en el sistema.');
+      throw new Error('La persona ya está registrada como PROPIETARIO.');
     }
 
-    // 3) Parsear lat/lng desde la URL de GPS
     const coords = parseGpsFromUrl(data.local.gps_url);
     if (!coords) {
-      throw new Error('No se pudieron extraer coordenadas válidas desde la URL de GPS.');
+      throw new Error('La URL de GPS no tiene coordenadas válidas.');
     }
     const latStr = String(coords.lat);
     const lngStr = String(coords.lng);
 
-    // 4) Subir imágenes a Cloudinary primero (fail-fast si falla red)
     const rollbackPublicIds: string[] = [];
 
     const { subidas: imgsLocal, publicIds: idsLocal } =
@@ -81,7 +76,6 @@ export const RegistroPropietarioService = {
       rollbackPublicIds.push(...publicIds);
     }
 
-    // 5) Transacción total
     try {
       const usuario = await prisma.$transaction(async (tx) => {
         const hash = await bcrypt.hash(data.password, 10);
@@ -90,7 +84,6 @@ export const RegistroPropietarioService = {
           data: {
             nombre: data.nombre.trim(),
             primer_apellido: data.primer_apellido.trim(),
-            // ✅ Guardar null en vez de '' para segundo_apellido
             segundo_apellido: segundoApeInput,
             correo: data.correo,
             password: hash,
@@ -112,7 +105,6 @@ export const RegistroPropietarioService = {
             nombre: data.local.nombre.trim(),
             direccion: data.local.direccion.trim(),
             ciudad: (data.local.ciudad || 'Cochabamba').trim(),
-            // ✅ Prisma Decimal acepta string
             latitud: latStr,
             longitud: lngStr,
             id_usuario_admin: u.id_usuario
@@ -120,7 +112,6 @@ export const RegistroPropietarioService = {
           select: { id_local: true }
         });
 
-        // Imágenes del local
         if (imgsLocal.length) {
           await tx.imagen.createMany({
             data: imgsLocal.map((img) => ({
@@ -130,14 +121,14 @@ export const RegistroPropietarioService = {
           });
         }
 
-        // Mesas + imágenes
         for (const [i, mesa] of mesasInput.entries()) {
           const creada = await tx.mesa.create({
             data: {
               numero_mesa: mesa.numero_mesa,
               descripcion: mesa.descripcion ?? null,
               tipo_mesa: mesa.tipo_mesa,
-              id_local: local.id_local
+              id_local: local.id_local,
+              precio_hora: mesa.precio_hora
             },
             select: { id_mesa: true }
           });
@@ -156,7 +147,6 @@ export const RegistroPropietarioService = {
         return u;
       });
 
-      // 6) Token + respuesta
       const nombreCompleto = [usuario.nombre, usuario.primer_apellido, usuario.segundo_apellido]
         .filter(Boolean)
         .join(' ')
@@ -180,11 +170,8 @@ export const RegistroPropietarioService = {
         }
       };
     } catch (err) {
-      // Rollback de imágenes subidas si falla la BD
       await eliminarImagenesCloudinary(rollbackPublicIds);
-      throw new Error(
-        'Ocurrió un error durante el registro. No se guardaron cambios. Intenta nuevamente o contacta soporte.'
-      );
+      throw new Error('Error durante el registro. No se guardaron cambios.');
     }
   }
 };

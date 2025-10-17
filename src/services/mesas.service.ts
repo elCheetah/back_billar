@@ -10,17 +10,19 @@ export interface CrearMesaDTO {
     localId: number;
     numero_mesa: number;
     tipo_mesa: TipoMesa;
+    precio_hora: number;
     descripcion?: string | null;
-    imagenes?: ImagenEntrada[]; // base64 o url_remota desde el front
+    imagenes?: ImagenEntrada[];
 }
 
 export interface ActualizarMesaDTO {
     id_mesa: number;
     numero_mesa?: number;
     tipo_mesa?: TipoMesa;
+    precio_hora?: number;
     descripcion?: string | null;
-    agregar_imagenes?: ImagenEntrada[]; // nuevas imágenes
-    eliminar_imagen_ids?: number[];     // ids (tabla Imagen) a eliminar
+    agregar_imagenes?: ImagenEntrada[];
+    eliminar_imagen_ids?: number[];
 }
 
 async function assertLocalOwnedByUser(localId: number, userId: number) {
@@ -41,17 +43,15 @@ async function assertMesaOwnedByUser(mesaId: number, userId: number) {
         select: { id_mesa: true, id_local: true, estado: true }
     });
     if (!mesa || mesa.estado === 'INACTIVO') {
-        throw new Error('Mesa no encontrada o inactiva, o no tienes permisos.');
+        throw new Error('Mesa no encontrada o inactiva, o sin permisos.');
     }
     return mesa;
 }
 
 export const MesasService = {
-    // Crear mesa
     async crear(data: CrearMesaDTO, userId: number) {
         await assertLocalOwnedByUser(data.localId, userId);
 
-        // Unicidad de número en el local (sólo mesas activas)
         const repetida = await prisma.mesa.findFirst({
             where: { id_local: data.localId, numero_mesa: data.numero_mesa, estado: { not: 'INACTIVO' } }
         });
@@ -59,7 +59,6 @@ export const MesasService = {
             throw new Error('Ya existe una mesa con ese número en el local.');
         }
 
-        // Subir imágenes -> guardamos SÓLO url_imagen en BD
         const { subidas } = await subirMultiplesImagenesACloudinary(data.imagenes, 'mesas');
 
         const creada = await prisma.$transaction(async (tx) => {
@@ -68,15 +67,16 @@ export const MesasService = {
                     id_local: data.localId,
                     numero_mesa: data.numero_mesa,
                     tipo_mesa: data.tipo_mesa,
-                    descripcion: data.descripcion ?? null
+                    descripcion: data.descripcion ?? null,
+                    precio_hora: data.precio_hora
                 },
-                select: { id_mesa: true, id_local: true, numero_mesa: true, tipo_mesa: true, descripcion: true, estado: true }
+                select: { id_mesa: true, id_local: true, numero_mesa: true, tipo_mesa: true, descripcion: true, estado: true, precio_hora: true }
             });
 
             if (subidas.length) {
                 await tx.imagen.createMany({
                     data: subidas.map((img) => ({
-                        url_imagen: img.url, // 👈 sólo URL
+                        url_imagen: img.url,
                         mesaId: mesa.id_mesa
                     }))
                 });
@@ -88,7 +88,6 @@ export const MesasService = {
         return { message: 'Mesa creada correctamente.', mesa: creada };
     },
 
-    // Listar TODAS las mesas de un local (sin paginación)
     async listarPorLocal(localId: number, userId: number) {
         await assertLocalOwnedByUser(localId, userId);
 
@@ -101,7 +100,6 @@ export const MesasService = {
         return mesas;
     },
 
-    // Obtener detalle de una mesa
     async obtener(idMesa: number, userId: number) {
         await assertMesaOwnedByUser(idMesa, userId);
 
@@ -117,11 +115,9 @@ export const MesasService = {
         return mesa;
     },
 
-    // Actualizar mesa (datos + agregar/eliminar imágenes)
     async actualizar(data: ActualizarMesaDTO, userId: number) {
         const mesa = await assertMesaOwnedByUser(data.id_mesa, userId);
 
-        // Si cambia numero_mesa, validar unicidad en el local
         if (typeof data.numero_mesa === 'number') {
             const repetida = await prisma.mesa.findFirst({
                 where: {
@@ -132,11 +128,10 @@ export const MesasService = {
                 }
             });
             if (repetida) {
-                throw new Error('Ya existe otra mesa con ese número en el mismo local.');
+                throw new Error('Ya existe otra mesa con ese número en el local.');
             }
         }
 
-        // Subir nuevas imágenes (sólo URL se guarda)
         const { subidas } = await subirMultiplesImagenesACloudinary(data.agregar_imagenes, 'mesas');
 
         const actualizada = await prisma.$transaction(async (tx) => {
@@ -145,7 +140,8 @@ export const MesasService = {
                 data: {
                     numero_mesa: typeof data.numero_mesa === 'number' ? data.numero_mesa : undefined,
                     tipo_mesa: data.tipo_mesa ?? undefined,
-                    descripcion: data.descripcion !== undefined ? data.descripcion : undefined
+                    descripcion: data.descripcion !== undefined ? data.descripcion : undefined,
+                    precio_hora: typeof data.precio_hora === 'number' ? data.precio_hora : undefined
                 },
                 include: { imagenes: { select: { id_imagen: true, url_imagen: true } } }
             });
@@ -163,7 +159,6 @@ export const MesasService = {
                 await tx.imagen.deleteMany({
                     where: { id_imagen: { in: data.eliminar_imagen_ids }, mesaId: data.id_mesa }
                 });
-                // Si quisieras borrar también en Cloudinary necesitarías guardar `public_id` en BD.
             }
 
             return upd;
@@ -172,7 +167,6 @@ export const MesasService = {
         return { message: 'Mesa actualizada correctamente.', mesa: actualizada };
     },
 
-    // Eliminar (soft delete)
     async eliminar(idMesa: number, userId: number) {
         await assertMesaOwnedByUser(idMesa, userId);
 
@@ -181,6 +175,6 @@ export const MesasService = {
             data: { estado: 'INACTIVO' }
         });
 
-        return { message: 'Mesa eliminada (inactivada) correctamente.' };
+        return { message: 'Mesa inactivada correctamente.' };
     }
 };
