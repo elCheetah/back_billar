@@ -13,7 +13,7 @@ import registroClienteRoutes from './routes/registro-cliente.routes';
 import mesasRoutes from './routes/mesas.routes';
 import horariosRoutes from "./routes/horarios.routes";
 import historialReservasRoutes from "./routes/historialReservas.routes";
-
+import perfilRoutes from "./routes/perfil.routes";
 
 const app = express();
 
@@ -61,7 +61,7 @@ app.use('/api/registro', registroClienteRoutes);
 app.use('/api/mesas', mesasRoutes);
 app.use("/api/horarios/local", horariosRoutes);
 app.use("/api/reservas", historialReservasRoutes);
-
+app.use("/api/perfil", perfilRoutes);
 
 
 // Solo levantar servidor en entorno local
