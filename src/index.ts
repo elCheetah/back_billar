@@ -12,6 +12,8 @@ import registroPropietarioRoutes from './routes/registro-propietario.routes';
 import registroClienteRoutes from './routes/registro-cliente.routes';
 import mesasRoutes from './routes/mesas.routes';
 import horariosRoutes from "./routes/horarios.routes";
+import historialReservasRoutes from "./routes/historialReservas.routes";
+
 
 const app = express();
 
@@ -58,7 +60,7 @@ app.use('/api/registro', registroPropietarioRoutes);
 app.use('/api/registro', registroClienteRoutes);
 app.use('/api/mesas', mesasRoutes);
 app.use("/api/horarios/local", horariosRoutes);
-
+app.use("/api/reservas", historialReservasRoutes);
 
 
 
