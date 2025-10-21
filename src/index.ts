@@ -1,7 +1,7 @@
+// src/app.ts  (o tu archivo principal del server)
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import dotenv from 'dotenv';
 import prisma from './config/database';
 import { subirImagenACloudinary } from './utils/cloudinary';
 
@@ -12,15 +12,18 @@ import registroPropietarioRoutes from './routes/registro-propietario.routes';
 import registroClienteRoutes from './routes/registro-cliente.routes';
 import mesasRoutes from './routes/mesas.routes';
 
-dotenv.config();
-
 const app = express();
+
+// ====== Límite de body definido======
+const BODY_LIMIT = '10mb';
 
 // Middlewares
 app.use(cors());
 app.use(helmet());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+
+// Aumenta el tamaño máximo permitido para JSON y x-www-form-urlencoded
+app.use(express.json({ limit: BODY_LIMIT }));
+app.use(express.urlencoded({ extended: true, limit: BODY_LIMIT }));
 
 // Health Check principal
 app.get('/', async (_req, res) => {
@@ -35,7 +38,7 @@ app.get('/', async (_req, res) => {
 // Health check secundario (útil para monitoreo o Vercel)
 app.get('/api/health', (_req, res) => res.json({ ok: true, ts: Date.now() }));
 
-// propar subida de imagen a Cloudinary
+// Probar subida de imagen a Cloudinary
 app.post('/api/test/cloudinary', async (req, res) => {
   try {
     const { base64 } = req.body;
@@ -58,7 +61,7 @@ app.use('/api/mesas', mesasRoutes);
 if (process.env.NODE_ENV !== 'production') {
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, () => {
-    console.log(`API running on http://localhost:${PORT}`);
+    console.log(`API running on http://localhost:${PORT} (body limit: ${BODY_LIMIT})`);
   });
 }
 
