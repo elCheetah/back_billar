@@ -11,6 +11,7 @@ import passwordRecoveryRoutes from './routes/password-recovery.routes';
 import registroPropietarioRoutes from './routes/registro-propietario.routes';
 import registroClienteRoutes from './routes/registro-cliente.routes';
 import mesasRoutes from './routes/mesas.routes';
+import horariosRoutes from "./routes/horarios.routes";
 
 const app = express();
 
@@ -56,6 +57,10 @@ app.use('/api/auth/recovery', passwordRecoveryRoutes);
 app.use('/api/registro', registroPropietarioRoutes);
 app.use('/api/registro', registroClienteRoutes);
 app.use('/api/mesas', mesasRoutes);
+app.use("/api/horarios/local", horariosRoutes);
+
+
+
 
 // Solo levantar servidor en entorno local
 if (process.env.NODE_ENV !== 'production') {
