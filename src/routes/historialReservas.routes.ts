@@ -1,15 +1,16 @@
 // src/routes/historialReservas.routes.ts
 import { Router } from "express";
 import { requireAuth } from "../middlewares/auth.middleware";
-import { validarQueryHistorial } from "../middlewares/validarHistorial.middleware";
-import { listarHistorialCliente } from "../controllers/historialReservas.controller";
+import { validarHistorialRango } from "../middlewares/validarHistorialRango.middleware";
+import { listarHistorial } from "../controllers/historialReservas.controller";
 
 /**
- * GET /api/reservas/historial?meses=3
- * Solo para el USUARIO AUTENTICADO.
- * Devuelve FINALIZADA/CANCELADA de los últimos N meses (default 3),
- * ordenado: más reciente primero.
+ * GET /api/reservas/historial?desde=YYYY-MM-DD&hasta=YYYY-MM-DD
+ * - Solo CLIENTE (su historial) o PROPIETARIO (de su(s) local(es))
+ * - Estados: FINALIZADA / CANCELADA
+ * - Rango máximo: 1 año
+ * - Devuelve: más reciente primero
  */
 const router = Router();
-router.get("/historial", requireAuth, validarQueryHistorial, listarHistorialCliente);
+router.get("/historial", requireAuth, validarHistorialRango, listarHistorial);
 export default router;
