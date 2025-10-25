@@ -29,3 +29,26 @@ export function normalizarDiaSemana(dia: string): DiaSemana {
 export function haySolape(a1: Date, a2: Date, b1: Date, b2: Date): boolean {
   return a1 < b2 && b1 < a2;
 }
+
+
+/** Día de semana actual en zona America/La_Paz (0=DOMINGO ... 6=SABADO) */
+export function diaSemanaActualLaPaz(): DiaSemana {
+  const ahoraBo = new Date(
+    new Date().toLocaleString("en-US", { timeZone: "America/La_Paz" })
+  );
+  const dow = ahoraBo.getDay();
+  return (
+    ["DOMINGO","LUNES","MARTES","MIERCOLES","JUEVES","VIERNES","SABADO"][dow]
+  ) as DiaSemana;
+}
+
+/**
+ * Hora actual de Bolivia anclada a 1970-01-01 en UTC (para comparar con @db.Time).
+ * Ej.: si en Bolivia son 14:30, retorna Date.UTC(1970,0,1,14,30,00).
+ */
+export function horaActualAncladaUTC(): Date {
+  const bo = new Date(
+    new Date().toLocaleString("en-US", { timeZone: "America/La_Paz" })
+  );
+  return new Date(Date.UTC(1970, 0, 1, bo.getHours(), bo.getMinutes(), bo.getSeconds(), 0));
+}
