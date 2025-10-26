@@ -126,6 +126,11 @@ model Pago {
   fecha_confirmacion   DateTime?
   estado_pago          EstadoPago  @default(PENDIENTE)
 
+  reembolso_estado     EstadoReembolso @default(NO_REEMBOLSADO)
+  monto_reembolsado    Decimal?     @db.Decimal(10,2)
+  fecha_reembolso      DateTime?
+  comprobante_reembolso_url String? @db.VarChar(255)
+
   usuario  Usuario @relation(fields: [id_usuario], references: [id_usuario])
   reserva  Reserva @relation("ReservaPago", fields: [id_reserva], references: [id_reserva])
 
@@ -227,4 +232,9 @@ enum DiaSemana {
   VIERNES
   SABADO
   DOMINGO
+}
+
+enum EstadoReembolso {
+  NO_REEMBOLSADO
+  REEMBOLSADO
 }
