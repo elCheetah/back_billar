@@ -21,7 +21,12 @@ export type ItemHistorialDTO = {
   pagoQr: { monto: number; comprobante_url: string } | null;
 
   estado: "Cancelada" | "Finalizada";
+
+  // Solo si estado = Cancelada
+  penalizacion?: string; // "Penalización X%"
 };
+
+/* -------------------- helpers -------------------- */
 
 function minutosEntre(a: Date, b: Date) {
   return Math.max(0, Math.round((b.getTime() - a.getTime()) / 60000));
@@ -37,6 +42,27 @@ function nombreMayusculas(u: {
   const partes = [u.nombre, u.primer_apellido, u.segundo_apellido || ""].filter(Boolean);
   return partes.join(" ").trim().toUpperCase();
 }
+function round2(n: number) {
+  return Math.round(n * 100) / 100;
+}
+
+/**
+ * Calcula monto de penalización para una reserva CANCELADA.
+ * - porcentaje: reserva.penalizacion_aplicada (si null -> 0)
+ * - base: reserva.monto_estimado (si null -> 0)
+ * - monto = base * (porcentaje/100)
+ */
+function calcularPenalCancelada(reserva: {
+  penalizacion_aplicada: any | null;
+  monto_estimado: any | null;
+}) {
+  const porcentaje = Number(reserva.penalizacion_aplicada ?? 0);
+  const base = Number(reserva.monto_estimado ?? 0);
+  const monto = round2(base * (porcentaje / 100));
+  return { porcentaje, monto };
+}
+
+/* -------------------- consultas -------------------- */
 
 export async function historialCliente(
   idUsuario: number,
@@ -66,13 +92,27 @@ export async function historialCliente(
     const estado: "Cancelada" | "Finalizada" =
       r.estado_reserva === "CANCELADA" ? "Cancelada" : "Finalizada";
 
+    // Pago QR (solo si Aprobado). En canceladas normalmente no aplica; si existiera, lo ignoramos para canceladas.
     const pagoQrVal =
-      r.pago && r.pago.estado_pago === "APROBADO" && r.pago.comprobante_url
+      estado === "Finalizada" &&
+      r.pago &&
+      r.pago.estado_pago === "APROBADO" &&
+      r.pago.comprobante_url
         ? { monto: Number(r.pago.monto), comprobante_url: r.pago.comprobante_url }
         : null;
 
-    const pagoEstimadoVal =
-      pagoQrVal ? null : (r.monto_estimado != null ? Number(r.monto_estimado) : 0);
+    let pagoEstimadoVal: number | null;
+    let extra: Partial<ItemHistorialDTO> = {};
+
+    if (estado === "Cancelada") {
+      const { porcentaje, monto } = calcularPenalCancelada(r);
+      // Para CLIENTE el monto va en negativo; si es 0, evitar "-0"
+      pagoEstimadoVal = monto === 0 ? 0 : -monto;
+      extra = { penalizacion: `Penalización ${round2(porcentaje)}%` };
+    } else {
+      // Finalizada: si no hubo QR aprobado, mostrar estimado; si sí hubo QR, estimado = null
+      pagoEstimadoVal = pagoQrVal ? null : (r.monto_estimado != null ? Number(r.monto_estimado) : 0);
+    }
 
     return {
       nombreLocal: r.mesa.local.nombre,
@@ -84,9 +124,10 @@ export async function historialCliente(
       duracion: formatoHHmmDeMinutos(durMin),
 
       pagoEstimado: pagoEstimadoVal,
-      pagoQr: pagoQrVal,
+      pagoQr: estado === "Cancelada" ? null : pagoQrVal,
 
       estado,
+      ...extra,
     };
   });
 }
@@ -134,13 +175,26 @@ export async function historialPropietario(
     const estado: "Cancelada" | "Finalizada" =
       r.estado_reserva === "CANCELADA" ? "Cancelada" : "Finalizada";
 
+    // Pago QR (si existe y está aprobado)
     const pagoQrVal =
-      r.pago && r.pago.estado_pago === "APROBADO" && r.pago.comprobante_url
+      estado === "Finalizada" &&
+      r.pago &&
+      r.pago.estado_pago === "APROBADO" &&
+      r.pago.comprobante_url
         ? { monto: Number(r.pago.monto), comprobante_url: r.pago.comprobante_url }
         : null;
 
-    const pagoEstimadoVal =
-      pagoQrVal ? null : (r.monto_estimado != null ? Number(r.monto_estimado) : 0);
+    let pagoEstimadoVal: number | null;
+    let extra: Partial<ItemHistorialDTO> = {};
+
+    if (estado === "Cancelada") {
+      const { porcentaje, monto } = calcularPenalCancelada(r);
+      // Para PROPIETARIO el monto va en POSITIVO (ingreso); si es 0, mostrar 0
+      pagoEstimadoVal = monto;
+      extra = { penalizacion: `Penalización ${round2(porcentaje)}%` };
+    } else {
+      pagoEstimadoVal = pagoQrVal ? null : (r.monto_estimado != null ? Number(r.monto_estimado) : 0);
+    }
 
     return {
       nombreCliente: nombreMayusculas(r.usuario),
@@ -153,9 +207,10 @@ export async function historialPropietario(
       duracion: formatoHHmmDeMinutos(durMin),
 
       pagoEstimado: pagoEstimadoVal,
-      pagoQr: pagoQrVal,
+      pagoQr: estado === "Cancelada" ? null : pagoQrVal,
 
       estado,
+      ...extra,
     };
   });
 }
