@@ -52,3 +52,25 @@ export function horaActualAncladaUTC(): Date {
   );
   return new Date(Date.UTC(1970, 0, 1, bo.getHours(), bo.getMinutes(), bo.getSeconds(), 0));
 }
+
+/** Fecha/hora actual en zona America/La_Paz como Date "local" */
+export function ahoraLaPaz(): Date {
+  return new Date(new Date().toLocaleString("en-US", { timeZone: "America/La_Paz" }));
+}
+
+/** YYYY-MM-DD de HOY en Bolivia */
+export function hoyLaPazYYYYMMDD(): string {
+  const bo = ahoraLaPaz();
+  const y = bo.getFullYear();
+  const m = (bo.getMonth() + 1).toString().padStart(2, "0");
+  const d = bo.getDate().toString().padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/** YYYY-MM-DD a partir de una Date UTC (00:00 del día) */
+export function fechaUTCaYYYYMMDD(d: Date): string {
+  const y = d.getUTCFullYear();
+  const m = (d.getUTCMonth() + 1).toString().padStart(2, "0");
+  const day = d.getUTCDate().toString().padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
