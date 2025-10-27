@@ -1,180 +1,180 @@
-import prisma from '../config/database';
-import {
-    ImagenEntrada,
-    subirMultiplesImagenesACloudinary
-} from '../utils/cloudinary';
+import prisma from "../config/database";
+import { $Enums } from "@prisma/client";
+import { subirMultiplesImagenesACloudinary, ImagenEntrada } from "../utils/cloudinary";
 
-type TipoMesa = 'POOL' | 'CARAMBOLA' | 'SNOOKER' | 'MIXTO';
+type TipoMesa = "POOL" | "CARAMBOLA" | "SNOOKER" | "MIXTO";
 
-export interface CrearMesaDTO {
-    localId: number;
-    numero_mesa: number;
-    tipo_mesa: TipoMesa;
-    precio_hora: number;
-    descripcion?: string | null;
-    imagenes?: ImagenEntrada[];
-}
-
-export interface ActualizarMesaDTO {
-    id_mesa: number;
-    numero_mesa?: number;
-    tipo_mesa?: TipoMesa;
-    precio_hora?: number;
-    descripcion?: string | null;
-    agregar_imagenes?: ImagenEntrada[];
-    eliminar_imagen_ids?: number[];
-}
-
-async function assertLocalOwnedByUser(localId: number, userId: number) {
-    const local = await prisma.local.findFirst({
-        where: { id_local: localId, id_usuario_admin: userId }
-    });
-    if (!local) {
-        throw new Error('No tienes permisos sobre el local indicado.');
-    }
-}
-
-async function assertMesaOwnedByUser(mesaId: number, userId: number) {
-    const mesa = await prisma.mesa.findFirst({
-        where: {
-            id_mesa: mesaId,
-            local: { id_usuario_admin: userId }
-        },
-        select: { id_mesa: true, id_local: true, estado: true }
-    });
-    if (!mesa || mesa.estado === 'INACTIVO') {
-        throw new Error('Mesa no encontrada o inactiva, o sin permisos.');
-    }
-    return mesa;
+interface CrearMesaDTO {
+  numero_mesa: number;
+  tipo_mesa: TipoMesa;
+  precio_hora: number;
+  descripcion?: string | null;
+  imagenes?: ImagenEntrada[];
 }
 
 export const MesasService = {
-    async crear(data: CrearMesaDTO, userId: number) {
-        await assertLocalOwnedByUser(data.localId, userId);
+  /** 🔹 Obtener local del usuario logueado */
+  async getLocalByUser(userId: number) {
+    const local = await prisma.local.findFirst({
+      where: { id_usuario_admin: userId, estado: "ACTIVO" },
+    });
+    if (!local) throw new Error("El usuario no tiene un local activo registrado.");
+    return local;
+  },
 
-        const repetida = await prisma.mesa.findFirst({
-            where: { id_local: data.localId, numero_mesa: data.numero_mesa, estado: { not: 'INACTIVO' } }
-        });
-        if (repetida) {
-            throw new Error('Ya existe una mesa con ese número en el local.');
-        }
+  /** 🔹 Listar mesas de su propio local */
+  async listarPorUsuario(userId: number) {
+    const local = await this.getLocalByUser(userId);
 
-        const { subidas } = await subirMultiplesImagenesACloudinary(data.imagenes, 'mesas');
+    const mesasActivas = await prisma.mesa.findMany({
+      where: { id_local: local.id_local, estado: { not: "INACTIVO" } },
+      include: { imagenes: true },
+      orderBy: { numero_mesa: "asc" },
+    });
 
-        const creada = await prisma.$transaction(async (tx) => {
-            const mesa = await tx.mesa.create({
-                data: {
-                    id_local: data.localId,
-                    numero_mesa: data.numero_mesa,
-                    tipo_mesa: data.tipo_mesa,
-                    descripcion: data.descripcion ?? null,
-                    precio_hora: data.precio_hora
-                },
-                select: { id_mesa: true, id_local: true, numero_mesa: true, tipo_mesa: true, descripcion: true, estado: true, precio_hora: true }
-            });
+    const mesasInactivas = await prisma.mesa.findMany({
+      where: { id_local: local.id_local, estado: "INACTIVO" },
+      include: { imagenes: true },
+      orderBy: { numero_mesa: "asc" },
+    });
 
-            if (subidas.length) {
-                await tx.imagen.createMany({
-                    data: subidas.map((img) => ({
-                        url_imagen: img.url,
-                        mesaId: mesa.id_mesa
-                    }))
-                });
-            }
+    return [...mesasActivas, ...mesasInactivas];
+  },
 
-            return mesa;
-        });
+  /** 🔹 Crear nueva mesa */
+  async crear(userId: number, data: CrearMesaDTO) {
+    const local = await this.getLocalByUser(userId);
 
-        return { message: 'Mesa creada correctamente.', mesa: creada };
-    },
+    const repetida = await prisma.mesa.findFirst({
+      where: { id_local: local.id_local, numero_mesa: data.numero_mesa },
+    });
+    if (repetida) throw new Error("Ya existe una mesa con ese número en el local.");
 
-    async listarPorLocal(localId: number, userId: number) {
-        await assertLocalOwnedByUser(localId, userId);
+    const { subidas } = await subirMultiplesImagenesACloudinary(data.imagenes, "mesas");
 
-        const mesas = await prisma.mesa.findMany({
-            where: { id_local: localId, estado: { not: 'INACTIVO' } },
-            include: { imagenes: { select: { id_imagen: true, url_imagen: true } } },
-            orderBy: { numero_mesa: 'asc' }
-        });
+    const mesa = await prisma.mesa.create({
+      data: {
+        id_local: local.id_local,
+        numero_mesa: data.numero_mesa,
+        tipo_mesa: data.tipo_mesa,
+        precio_hora: data.precio_hora,
+        descripcion: data.descripcion ?? null,
+        estado: $Enums.EstadoMesa.DISPONIBLE,
+      },
+    });
 
-        return mesas;
-    },
-
-    async obtener(idMesa: number, userId: number) {
-        await assertMesaOwnedByUser(idMesa, userId);
-
-        const mesa = await prisma.mesa.findUnique({
-            where: { id_mesa: idMesa },
-            include: { imagenes: { select: { id_imagen: true, url_imagen: true } } }
-        });
-
-        if (!mesa || mesa.estado === 'INACTIVO') {
-            throw new Error('Mesa no encontrada o inactiva.');
-        }
-
-        return mesa;
-    },
-
-    async actualizar(data: ActualizarMesaDTO, userId: number) {
-        const mesa = await assertMesaOwnedByUser(data.id_mesa, userId);
-
-        if (typeof data.numero_mesa === 'number') {
-            const repetida = await prisma.mesa.findFirst({
-                where: {
-                    id_local: mesa.id_local,
-                    numero_mesa: data.numero_mesa,
-                    id_mesa: { not: data.id_mesa },
-                    estado: { not: 'INACTIVO' }
-                }
-            });
-            if (repetida) {
-                throw new Error('Ya existe otra mesa con ese número en el local.');
-            }
-        }
-
-        const { subidas } = await subirMultiplesImagenesACloudinary(data.agregar_imagenes, 'mesas');
-
-        const actualizada = await prisma.$transaction(async (tx) => {
-            const upd = await tx.mesa.update({
-                where: { id_mesa: data.id_mesa },
-                data: {
-                    numero_mesa: typeof data.numero_mesa === 'number' ? data.numero_mesa : undefined,
-                    tipo_mesa: data.tipo_mesa ?? undefined,
-                    descripcion: data.descripcion !== undefined ? data.descripcion : undefined,
-                    precio_hora: typeof data.precio_hora === 'number' ? data.precio_hora : undefined
-                },
-                include: { imagenes: { select: { id_imagen: true, url_imagen: true } } }
-            });
-
-            if (subidas.length) {
-                await tx.imagen.createMany({
-                    data: subidas.map((img) => ({
-                        url_imagen: img.url,
-                        mesaId: data.id_mesa
-                    }))
-                });
-            }
-
-            if (data.eliminar_imagen_ids?.length) {
-                await tx.imagen.deleteMany({
-                    where: { id_imagen: { in: data.eliminar_imagen_ids }, mesaId: data.id_mesa }
-                });
-            }
-
-            return upd;
-        });
-
-        return { message: 'Mesa actualizada correctamente.', mesa: actualizada };
-    },
-
-    async eliminar(idMesa: number, userId: number) {
-        await assertMesaOwnedByUser(idMesa, userId);
-
-        await prisma.mesa.update({
-            where: { id_mesa: idMesa },
-            data: { estado: 'INACTIVO' }
-        });
-
-        return { message: 'Mesa inactivada correctamente.' };
+    if (subidas.length) {
+      await prisma.imagen.createMany({
+        data: subidas.map((img) => ({
+          url_imagen: img.url,
+          mesaId: mesa.id_mesa,
+        })),
+      });
     }
+
+    return { message: "Mesa creada correctamente.", mesa };
+  },
+
+  /** 🔹 Actualizar mesa */
+  async actualizar(userId: number, idMesa: number, data: any) {
+    const local = await this.getLocalByUser(userId);
+
+    const mesa = await prisma.mesa.findFirst({
+      where: { id_mesa: idMesa, id_local: local.id_local },
+    });
+    if (!mesa) throw new Error("Mesa no encontrada o no pertenece a su local.");
+
+    if (data.numero_mesa && data.numero_mesa !== mesa.numero_mesa) {
+      const repetida = await prisma.mesa.findFirst({
+        where: { id_local: local.id_local, numero_mesa: data.numero_mesa },
+      });
+      if (repetida) throw new Error("Ya existe otra mesa con ese número.");
+    }
+
+    const { subidas } = await subirMultiplesImagenesACloudinary(data.agregar_imagenes, "mesas");
+
+    const actualizada = await prisma.$transaction(async (tx) => {
+      const upd = await tx.mesa.update({
+        where: { id_mesa: idMesa },
+        data: {
+          numero_mesa: data.numero_mesa ?? undefined,
+          tipo_mesa: data.tipo_mesa ?? undefined,
+          descripcion: data.descripcion ?? undefined,
+          precio_hora: data.precio_hora ?? undefined,
+        },
+      });
+
+      if (subidas.length) {
+        await tx.imagen.createMany({
+          data: subidas.map((img) => ({
+            url_imagen: img.url,
+            mesaId: idMesa,
+          })),
+        });
+      }
+
+      if (data.eliminar_imagen_ids?.length) {
+        await tx.imagen.deleteMany({
+          where: { id_imagen: { in: data.eliminar_imagen_ids }, mesaId: idMesa },
+        });
+      }
+
+      return upd;
+    });
+
+    return { message: "Mesa actualizada correctamente.", mesa: actualizada };
+  },
+
+  /** 🔹 Cambiar estado (habilitar / inhabilitar) */
+  async cambiarEstado(userId: number, idMesa: number, nuevoEstado: string) {
+    const local = await this.getLocalByUser(userId);
+    const mesa = await prisma.mesa.findFirst({
+      where: { id_mesa: idMesa, id_local: local.id_local },
+    });
+    if (!mesa) throw new Error("Mesa no encontrada o no pertenece a su local.");
+
+    // convertir a enum válido de Prisma
+    const estadoEnum = nuevoEstado as $Enums.EstadoMesa;
+
+    const actualizado = await prisma.mesa.update({
+      where: { id_mesa: idMesa },
+      data: { estado: estadoEnum },
+    });
+
+    return {
+      message:
+        estadoEnum === $Enums.EstadoMesa.INACTIVO
+          ? "Mesa inhabilitada correctamente."
+          : "Mesa habilitada correctamente.",
+      mesa: actualizado,
+    };
+  },
+
+  /** 🔹 Eliminar mesa (físico o lógico) */
+  async eliminar(userId: number, idMesa: number, tipo: "LOGICO" | "FISICO" = "LOGICO") {
+    const local = await this.getLocalByUser(userId);
+
+    const mesa = await prisma.mesa.findFirst({
+      where: { id_mesa: idMesa, id_local: local.id_local },
+    });
+    if (!mesa) throw new Error("Mesa no encontrada o no pertenece a su local.");
+
+    const total = await prisma.mesa.count({ where: { id_local: local.id_local } });
+    if (tipo === "FISICO" && total <= 1)
+      throw new Error("No se puede eliminar: el local debe tener al menos una mesa.");
+
+    if (tipo === "LOGICO") {
+      await prisma.mesa.update({
+        where: { id_mesa: idMesa },
+        data: { estado: $Enums.EstadoMesa.INACTIVO },
+      });
+      return { message: "Mesa inactivada correctamente." };
+    } else {
+      await prisma.$transaction(async (tx) => {
+        await tx.imagen.deleteMany({ where: { mesaId: idMesa } });
+        await tx.mesa.delete({ where: { id_mesa: idMesa } });
+      });
+      return { message: "Mesa eliminada permanentemente." };
+    }
+  },
 };

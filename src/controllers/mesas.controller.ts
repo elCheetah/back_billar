@@ -1,53 +1,54 @@
-import { Request, Response } from 'express';
-import { MesasService } from '../services/mesas.service';
+import { Request, Response } from "express";
+import { MesasService } from "../services/mesas.service";
 
 export const MesasController = {
   async crear(req: Request, res: Response) {
     try {
-      const result = await MesasService.crear(req.body, req.user!.id);
+      const result = await MesasService.crear(req.user!.id, req.body);
       return res.status(201).json({ ok: true, ...result });
     } catch (err: any) {
-      return res.status(400).json({ ok: false, message: err?.message || 'No se pudo crear la mesa.' });
+      return res.status(400).json({ ok: false, message: err.message });
     }
   },
 
-  async listarPorLocal(req: Request, res: Response) {
+  async listarPorUsuario(req: Request, res: Response) {
     try {
-      const localId = parseInt(String(req.query.localId), 10);
-      const mesas = await MesasService.listarPorLocal(localId, req.user!.id);
+      const mesas = await MesasService.listarPorUsuario(req.user!.id);
       return res.json({ ok: true, total: mesas.length, data: mesas });
     } catch (err: any) {
-      return res.status(400).json({ ok: false, message: err?.message || 'No se pudo obtener la lista de mesas.' });
-    }
-  },
-
-  async obtener(req: Request, res: Response) {
-    try {
-      const id = parseInt(req.params.id, 10);
-      const mesa = await MesasService.obtener(id, req.user!.id);
-      return res.json({ ok: true, mesa });
-    } catch (err: any) {
-      return res.status(404).json({ ok: false, message: err?.message || 'Mesa no encontrada.' });
+      return res.status(400).json({ ok: false, message: err.message });
     }
   },
 
   async actualizar(req: Request, res: Response) {
     try {
       const id = parseInt(req.params.id, 10);
-      const result = await MesasService.actualizar({ id_mesa: id, ...req.body }, req.user!.id);
+      const result = await MesasService.actualizar(req.user!.id, id, req.body);
       return res.json({ ok: true, ...result });
     } catch (err: any) {
-      return res.status(400).json({ ok: false, message: err?.message || 'No se pudo actualizar la mesa.' });
+      return res.status(400).json({ ok: false, message: err.message });
+    }
+  },
+
+  async cambiarEstado(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const { nuevoEstado } = req.body;
+      const result = await MesasService.cambiarEstado(req.user!.id, id, nuevoEstado);
+      return res.json({ ok: true, ...result });
+    } catch (err: any) {
+      return res.status(400).json({ ok: false, message: err.message });
     }
   },
 
   async eliminar(req: Request, res: Response) {
     try {
       const id = parseInt(req.params.id, 10);
-      const result = await MesasService.eliminar(id, req.user!.id);
+      const { tipo } = req.query;
+      const result = await MesasService.eliminar(req.user!.id, id, tipo as "LOGICO" | "FISICO");
       return res.json({ ok: true, ...result });
     } catch (err: any) {
-      return res.status(400).json({ ok: false, message: err?.message || 'No se pudo eliminar la mesa.' });
+      return res.status(400).json({ ok: false, message: err.message });
     }
-  }
+  },
 };
