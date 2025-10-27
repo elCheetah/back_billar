@@ -45,7 +45,7 @@ export const MesasController = {
     try {
       const id = parseInt(req.params.id, 10);
       const { tipo } = req.query;
-      const result = await MesasService.eliminar(req.user!.id, id, tipo as "LOGICO" | "FISICO");
+      const result = await MesasService.eliminar(req.user!.id, id, (tipo as "LOGICO" | "FISICO") || "LOGICO");
       return res.json({ ok: true, ...result });
     } catch (err: any) {
       return res.status(400).json({ ok: false, message: err.message });
