@@ -16,6 +16,7 @@ import historialReservasRoutes from "./routes/historialReservas.routes";
 import perfilRoutes from "./routes/perfil.routes";
 import filtroLocalesRoutes from "./routes/filtroLocales.routes";
 import miQrLocalRoutes from "./routes/miQrLocal.routes";
+import miDescuentoLocalRoutes from "./routes/miDescuentoLocal.routes";
 
 
 const app = express();
@@ -67,7 +68,7 @@ app.use("/api/reservas", historialReservasRoutes);
 app.use("/api/perfil", perfilRoutes);
 app.use("/api/locales", filtroLocalesRoutes);
 app.use("/api/local", miQrLocalRoutes);
-
+app.use("/api/local", miDescuentoLocalRoutes);
 
 
 
