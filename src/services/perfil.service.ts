@@ -1,5 +1,5 @@
 import prisma from "../config/database";
-import { subirImagenACloudinary, eliminarImagenesCloudinary, ImagenEntrada } from "../utils/cloudinary";
+import { subirImagenACloudinary, ImagenEntrada } from "../utils/cloudinary";
 
 export type PerfilDTO = {
   nombre: string;
@@ -8,7 +8,7 @@ export type PerfilDTO = {
   correo: string;
   celular: string | null;
   rol: "CLIENTE" | "PROPIETARIO" | "ADMINISTRADOR";
-  fecha_creacion: string;
+  fecha_creacion: string; // "YYYY-MM-DD"
   foto_url: string | null;
 };
 
@@ -47,17 +47,17 @@ export async function obtenerPerfilUsuario(idUsuario: number): Promise<PerfilDTO
 
 export async function editarPerfilUsuario(
   idUsuario: number,
-  data: Partial<{ nombre: string; primer_apellido: string; segundo_apellido: string; celular: string }>
+  data: Partial<{ nombre: string; primer_apellido: string; segundo_apellido: string | null; celular: string | null }>
 ): Promise<PerfilDTO> {
   const { nombre, primer_apellido, segundo_apellido, celular } = data;
 
   const actualizado = await prisma.usuario.update({
     where: { id_usuario: idUsuario },
     data: {
-      ...(nombre ? { nombre } : {}),
-      ...(primer_apellido ? { primer_apellido } : {}),
-      ...(segundo_apellido !== undefined ? { segundo_apellido } : {}),
-      ...(celular !== undefined ? { celular } : {}),
+      ...(typeof nombre === "string" ? { nombre } : {}),
+      ...(typeof primer_apellido === "string" ? { primer_apellido } : {}),
+      ...(typeof segundo_apellido !== "undefined" ? { segundo_apellido } : {}),
+      ...(typeof celular !== "undefined" ? { celular } : {}),
     },
     select: { id_usuario: true },
   });
@@ -67,13 +67,15 @@ export async function editarPerfilUsuario(
 
 export async function actualizarFotoPerfilUsuario(
   idUsuario: number,
-  imagen: ImagenEntrada
+  imagen: ImagenEntrada // Debe traer SOLO base64 (validado por middleware)
 ): Promise<{ foto_url: string }> {
-  const subida = await subirImagenACloudinary(imagen, `perfiles/${idUsuario}`);
+  // Subir a Cloudinary (mantiene compatibilidad, pero enviamos solo base64)
+  const subida = await subirImagenACloudinary({ base64: imagen.base64 || null, url_remota: null }, `perfiles/${idUsuario}`);
 
+  // Upsert de foto en tabla Imagen: guardar SOLO url_imagen, base64 siempre null
   const existente = await prisma.imagen.findFirst({
     where: { usuarioId: idUsuario, localId: null, mesaId: null },
-    select: { id_imagen: true, url_imagen: true },
+    select: { id_imagen: true },
   });
 
   if (existente) {
@@ -93,10 +95,9 @@ export async function actualizarFotoPerfilUsuario(
 export async function eliminarFotoPerfilUsuario(idUsuario: number): Promise<void> {
   const existente = await prisma.imagen.findFirst({
     where: { usuarioId: idUsuario, localId: null, mesaId: null },
-    select: { id_imagen: true, url_imagen: true },
+    select: { id_imagen: true },
   });
 
   if (!existente) throw new Error("No hay foto para eliminar.");
-
   await prisma.imagen.delete({ where: { id_imagen: existente.id_imagen } });
 }

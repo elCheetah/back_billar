@@ -6,7 +6,7 @@ import {
   eliminarFotoPerfilUsuario,
 } from "../services/perfil.service";
 
-// --- VER PERFIL ---
+// GET /perfil
 export async function verMiPerfil(req: Request, res: Response) {
   try {
     const user = (req as any).user;
@@ -15,11 +15,11 @@ export async function verMiPerfil(req: Request, res: Response) {
     const data = await obtenerPerfilUsuario(user.id);
     return res.json({ ok: true, data });
   } catch (e: any) {
-    return res.status(500).json({ ok: false, message: e.message || "Error recuperando el perfil." });
+    return res.status(500).json({ ok: false, message: e.message || "Error al recuperar el perfil." });
   }
 }
 
-// --- EDITAR PERFIL ---
+// PUT /perfil
 export async function editarMiPerfil(req: Request, res: Response) {
   try {
     const user = (req as any).user;
@@ -32,7 +32,7 @@ export async function editarMiPerfil(req: Request, res: Response) {
   }
 }
 
-// --- ACTUALIZAR FOTO ---
+// PUT /perfil/foto
 export async function actualizarMiFotoPerfil(req: Request, res: Response) {
   try {
     const user = (req as any).user;
@@ -46,7 +46,7 @@ export async function actualizarMiFotoPerfil(req: Request, res: Response) {
   }
 }
 
-// --- ELIMINAR FOTO ---
+// DELETE /perfil/foto
 export async function eliminarMiFotoPerfil(req: Request, res: Response) {
   try {
     const user = (req as any).user;

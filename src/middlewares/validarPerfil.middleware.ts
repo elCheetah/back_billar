@@ -3,12 +3,13 @@ import { Request, Response, NextFunction } from "express";
 const soloLetras = /^[A-Za-zÁÉÍÓÚáéíóúñÑ\s]+$/;
 const empiezaConMayuscula = /^[A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚáéíóúñÑ\s]*$/;
 const celularValido = /^[0-9]{6,20}$/;
+const esDataUriImagen = (v: string) => /^data:image\/[a-zA-Z0-9+.-]+;base64,/.test(v.trim());
 
 export function validarEditarPerfil(req: Request, res: Response, next: NextFunction) {
   try {
     const { nombre, primer_apellido, segundo_apellido, celular, correo, password, rol, estado } = req.body || {};
 
-    // Campos no permitidos
+    // Campos NO editables por esta ruta
     if (correo !== undefined || password !== undefined || rol !== undefined || estado !== undefined) {
       return res.status(400).json({ ok: false, message: "Solo puedes editar nombre, apellidos y celular." });
     }
@@ -51,12 +52,15 @@ export function validarFotoPerfil(req: Request, res: Response, next: NextFunctio
     }
 
     const { base64, url_remota } = imagen;
-    if ((!base64 || typeof base64 !== "string") && (!url_remota || typeof url_remota !== "string")) {
-      return res.status(400).json({
-        ok: false,
-        message: "Debes enviar 'imagen.base64' (data URI) o 'imagen.url_remota'.",
-      });
+
+    // ESTRICTO: solo base64 permitido (data URI). No se admite url_remota.
+    if (url_remota !== undefined) {
+      return res.status(400).json({ ok: false, message: "Solo se acepta 'imagen.base64' (data URI)." });
     }
+    if (typeof base64 !== "string" || !esDataUriImagen(base64)) {
+      return res.status(400).json({ ok: false, message: "base64 inválido. Usa data URI: 'data:image/...;base64,...'." });
+    }
+
     next();
   } catch {
     return res.status(400).json({ ok: false, message: "Datos inválidos." });
