@@ -1,10 +1,15 @@
-// src/controllers/perfil.controller.ts
 import { Request, Response } from "express";
-import { editarPerfilUsuario, obtenerPerfilUsuario, actualizarFotoPerfilUsuario } from "../services/perfil.service";
+import {
+  obtenerPerfilUsuario,
+  editarPerfilUsuario,
+  actualizarFotoPerfilUsuario,
+  eliminarFotoPerfilUsuario,
+} from "../services/perfil.service";
 
+// --- VER PERFIL ---
 export async function verMiPerfil(req: Request, res: Response) {
   try {
-    const user = (req as any).user as { id: number };
+    const user = (req as any).user;
     if (!user?.id) return res.status(401).json({ ok: false, message: "No autenticado." });
 
     const data = await obtenerPerfilUsuario(user.id);
@@ -14,27 +19,42 @@ export async function verMiPerfil(req: Request, res: Response) {
   }
 }
 
+// --- EDITAR PERFIL ---
 export async function editarMiPerfil(req: Request, res: Response) {
   try {
-    const user = (req as any).user as { id: number };
+    const user = (req as any).user;
     if (!user?.id) return res.status(401).json({ ok: false, message: "No autenticado." });
 
     const data = await editarPerfilUsuario(user.id, req.body || {});
-    return res.json({ ok: true, data, message: "Perfil actualizado." });
+    return res.json({ ok: true, message: "Perfil actualizado.", data });
   } catch (e: any) {
     return res.status(400).json({ ok: false, message: e.message || "No se pudo actualizar el perfil." });
   }
 }
 
+// --- ACTUALIZAR FOTO ---
 export async function actualizarMiFotoPerfil(req: Request, res: Response) {
   try {
-    const user = (req as any).user as { id: number };
+    const user = (req as any).user;
     if (!user?.id) return res.status(401).json({ ok: false, message: "No autenticado." });
 
     const { imagen } = req.body;
     const data = await actualizarFotoPerfilUsuario(user.id, imagen);
-    return res.json({ ok: true, data, message: "Foto de perfil actualizada." });
+    return res.json({ ok: true, message: "Foto actualizada.", data });
   } catch (e: any) {
-    return res.status(400).json({ ok: false, message: e.message || "No se pudo actualizar la foto de perfil." });
+    return res.status(400).json({ ok: false, message: e.message || "No se pudo actualizar la foto." });
+  }
+}
+
+// --- ELIMINAR FOTO ---
+export async function eliminarMiFotoPerfil(req: Request, res: Response) {
+  try {
+    const user = (req as any).user;
+    if (!user?.id) return res.status(401).json({ ok: false, message: "No autenticado." });
+
+    await eliminarFotoPerfilUsuario(user.id);
+    return res.json({ ok: true, message: "Foto eliminada." });
+  } catch (e: any) {
+    return res.status(400).json({ ok: false, message: e.message || "No se pudo eliminar la foto." });
   }
 }

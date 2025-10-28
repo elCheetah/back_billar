@@ -1,18 +1,25 @@
-// src/routes/perfil.routes.ts
 import { Router } from "express";
 import { requireAuth } from "../middlewares/auth.middleware";
-import { verMiPerfil, editarMiPerfil, actualizarMiFotoPerfil } from "../controllers/perfil.controller";
+import {
+  verMiPerfil,
+  editarMiPerfil,
+  actualizarMiFotoPerfil,
+  eliminarMiFotoPerfil,
+} from "../controllers/perfil.controller";
 import { validarEditarPerfil, validarFotoPerfil } from "../middlewares/validarPerfil.middleware";
 
 const router = Router();
 
-// Ver mi perfil (cliente/propietario/admin) – datos mínimos y seguros
+// Ver perfil (con datos y fecha de creación)
 router.get("/", requireAuth, verMiPerfil);
 
-// Editar mis datos (solo campos permitidos)
+// Editar nombre/apellidos/celular
 router.put("/", requireAuth, validarEditarPerfil, editarMiPerfil);
 
-// Subir/actualizar mi foto de perfil (una sola, se guarda URL)
+// Subir o reemplazar foto
 router.put("/foto", requireAuth, validarFotoPerfil, actualizarMiFotoPerfil);
+
+// Eliminar foto existente
+router.delete("/foto", requireAuth, eliminarMiFotoPerfil);
 
 export default router;

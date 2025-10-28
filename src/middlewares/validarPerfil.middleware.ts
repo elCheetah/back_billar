@@ -1,4 +1,3 @@
-// src/middlewares/validarPerfil.middleware.ts
 import { Request, Response, NextFunction } from "express";
 
 const soloLetras = /^[A-Za-zÁÉÍÓÚáéíóúñÑ\s]+$/;
@@ -9,17 +8,14 @@ export function validarEditarPerfil(req: Request, res: Response, next: NextFunct
   try {
     const { nombre, primer_apellido, segundo_apellido, celular, correo, password, rol, estado } = req.body || {};
 
-    // Campos que NO se aceptan aquí (por seguridad y reglas del negocio)
+    // Campos no permitidos
     if (correo !== undefined || password !== undefined || rol !== undefined || estado !== undefined) {
-      return res.status(400).json({
-        ok: false,
-        message: "Solo puedes editar: nombre, primer_apellido, segundo_apellido y celular.",
-      });
+      return res.status(400).json({ ok: false, message: "Solo puedes editar nombre, apellidos y celular." });
     }
 
     if (nombre !== undefined) {
       if (typeof nombre !== "string" || !soloLetras.test(nombre) || !empiezaConMayuscula.test(nombre)) {
-        return res.status(400).json({ ok: false, message: "Nombre inválido. Usa solo letras e inicia con mayúscula." });
+        return res.status(400).json({ ok: false, message: "Nombre inválido." });
       }
     }
 
@@ -50,9 +46,10 @@ export function validarEditarPerfil(req: Request, res: Response, next: NextFunct
 export function validarFotoPerfil(req: Request, res: Response, next: NextFunction) {
   try {
     const { imagen } = req.body || {};
-    if (!imagen || (typeof imagen !== "object")) {
+    if (!imagen || typeof imagen !== "object") {
       return res.status(400).json({ ok: false, message: "Se requiere 'imagen'." });
     }
+
     const { base64, url_remota } = imagen;
     if ((!base64 || typeof base64 !== "string") && (!url_remota || typeof url_remota !== "string")) {
       return res.status(400).json({
