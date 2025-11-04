@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import prisma from './config/database';
+import compression from "compression";
 import { subirImagenACloudinary } from './utils/cloudinary';
 
 import authRoutes from './routes/auth.routes';
@@ -33,6 +34,7 @@ app.use(helmet());
 // Aumenta el tamaño máximo permitido para JSON y x-www-form-urlencoded
 app.use(express.json({ limit: BODY_LIMIT }));
 app.use(express.urlencoded({ extended: true, limit: BODY_LIMIT }));
+app.use(compression());
 
 // Health Check principal
 app.get('/', async (_req, res) => {
