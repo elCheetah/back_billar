@@ -1,3 +1,4 @@
+// src/controllers/mesaDetalle.controller.ts
 import { Request, Response } from "express";
 import {
   getMesasDelLocalActivas,
@@ -7,29 +8,23 @@ import {
 } from "../services/mesaDetalle.service";
 
 export const MesaDetalleController = {
-  // GET /api/locales/mesas-del-local/:idLocal
   async mesasDelLocal(req: Request, res: Response) {
     try {
-      const idLocal = (req as any).idLocal as number; // viene validado por middleware
+      const idLocal = (req as any).idLocal as number;
       const data: MesasDelLocalResponse = await getMesasDelLocalActivas(idLocal);
       return res.json({ ok: true, data });
     } catch (err: any) {
-      return res
-        .status(400)
-        .json({ ok: false, message: err?.message || "Error al obtener mesas del local." });
+      return res.status(400).json({ ok: false, message: err?.message || "Error al obtener mesas del local." });
     }
   },
 
-  // GET /api/locales/mesa/:idMesa
   async mesaPorId(req: Request, res: Response) {
     try {
-      const idMesa = (req as any).idMesa as number; // viene validado por middleware
+      const idMesa = (req as any).idMesa as number;
       const data: MesaDetalleResponse = await getMesaPorIdDetalle(idMesa);
       return res.json({ ok: true, data });
     } catch (err: any) {
-      return res
-        .status(400)
-        .json({ ok: false, message: err?.message || "Error al obtener mesa." });
+      return res.status(400).json({ ok: false, message: err?.message || "Error al obtener mesa." });
     }
   },
 };

@@ -74,7 +74,7 @@ app.use("/api/locales", filtroLocalesRoutes);
 app.use("/api/local", miQrLocalRoutes);
 app.use("/api/local", miDescuentoLocalRoutes);
 app.use("/api/local", datosLocal);
-app.use("/api/local", mesaDetalle);
+app.use("/api/mesasLocal", mesaDetalle);
 
 
 
