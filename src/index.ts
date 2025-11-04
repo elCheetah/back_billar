@@ -71,9 +71,9 @@ app.use("/api/horarios/local", horariosRoutes);
 app.use("/api/reservas", historialReservasRoutes);
 app.use("/api/perfil", perfilRoutes);
 app.use("/api/locales", filtroLocalesRoutes);
-app.use("/api/milocal", miQrLocalRoutes);
-app.use("/api/milocal", miDescuentoLocalRoutes);
-app.use("/api/milocal", datosLocal);
+app.use("/api/local", miQrLocalRoutes);
+app.use("/api/local", miDescuentoLocalRoutes);
+app.use("/api/local", datosLocal);
 app.use("/api/local", mesaDetalle);
 
 
