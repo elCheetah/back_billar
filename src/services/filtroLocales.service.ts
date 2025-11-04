@@ -42,9 +42,9 @@ export type LocalFiltradoDTO = {
 };
 
 export async function buscarLocalesFiltrados(filtro: FiltroLocalesNormalizado) {
-  const { lat, lng, radioKm, texto, tipoMesa } = filtro;
+  const { lat, lng, radioKm, texto, tiposMesa } = filtro;
 
-  // 1) Locales activos con coords, imagen más reciente y TODOS los turnos
+  // 1) Locales activos con coords, imagen más reciente y todos los turnos
   let locales: LocalCrudo[] = [];
   try {
     locales = await prisma.local.findMany({
@@ -62,11 +62,11 @@ export async function buscarLocalesFiltrados(filtro: FiltroLocalesNormalizado) {
         },
       },
     });
-  } catch (e: any) {
+  } catch {
     throw new Error("Error al consultar locales.");
   }
 
-  // 2) Distancia + radio (defensas ante números inválidos)
+  // 2) Distancia + radio
   const conDist = locales
     .map((l) => {
       const la = Number(l.latitud);
@@ -76,15 +76,12 @@ export async function buscarLocalesFiltrados(filtro: FiltroLocalesNormalizado) {
     })
     .filter((l): l is LocalCrudo & { _dist: number } => !!l && l._dist <= radioKm);
 
-  // 3) Filtro por texto (nombre/dirección) opcional
+  // 3) Filtro por texto (nombre/dirección)
   const porTexto =
     texto && texto.length > 0
       ? conDist.filter((l) => {
           const q = texto.toLowerCase();
-          return (
-            (l.nombre || "").toLowerCase().includes(q) ||
-            (l.direccion || "").toLowerCase().includes(q)
-          );
+          return (l.nombre || "").toLowerCase().includes(q) || (l.direccion || "").toLowerCase().includes(q);
         })
       : conDist;
 
@@ -92,50 +89,46 @@ export async function buscarLocalesFiltrados(filtro: FiltroLocalesNormalizado) {
   const ids = porTexto.map((l) => l.id_local);
   const tiposPorLocal = await obtenerTiposDeMesaPorLocal(ids);
 
-  // 5) Filtro por tipo de mesa opcional (comparación en minúsculas)
-  const trasMesa = tipoMesa
-    ? porTexto.filter((l) =>
-        (tiposPorLocal.get(l.id_local) || []).includes(String(tipoMesa).toLowerCase())
-      )
-    : porTexto;
+  // 5) Filtro por tipos (OR: al menos uno). Si no hay tipos => no filtra.
+  const seleccion = (tiposMesa ?? []).map((t) => t.toLowerCase());
+  const trasTipos =
+    seleccion.length === 0
+      ? porTexto
+      : porTexto.filter((l) => {
+          const delLocal = tiposPorLocal.get(l.id_local) ?? [];
+          if (!delLocal.length) return false;
+          return seleccion.some((t) => delLocal.includes(t)); // OR
+        });
 
-  // 6) DTO final + horarios agrupados + estado actual
+  // 6) DTO final
   const ahoraUTC = horaActualAncladaUTC();
   const hoy = diaSemanaActualLaPaz();
 
-  const resultado: LocalFiltradoDTO[] = trasMesa
+  const resultado: LocalFiltradoDTO[] = trasTipos
     .map((l) => {
       const mensajes: string[] = [];
 
-      // imagen
       const imagen = l.imagenes[0]?.url_imagen || null;
       if (!imagen) mensajes.push("Sin imagen disponible");
 
-      // tipos de mesa
       const tipos = tiposPorLocal.get(l.id_local) || null;
       if (!tipos || tipos.length === 0) mensajes.push("El local aún no tiene mesas registradas");
 
-      // AGRUPAR horarios por día (siempre retornamos las 7 claves)
       const base: HorariosAgrupadosDTO = {
         LUNES: [], MARTES: [], MIERCOLES: [], JUEVES: [], VIERNES: [], SABADO: [], DOMINGO: [],
       };
-      for (const h of (l.horarios || [])) {
+      for (const h of l.horarios || []) {
         base[h.dia_semana].push({
           hora_apertura: fechaUTCaHHmm(h.hora_apertura),
-          hora_cierre:   fechaUTCaHHmm(h.hora_cierre),
+          hora_cierre: fechaUTCaHHmm(h.hora_cierre),
           estado: h.estado,
         });
       }
       const sinTurnos = (l.horarios || []).length === 0;
       if (sinTurnos) mensajes.push("Sin horarios disponibles");
 
-      // estado actual: abierto si algún turno ACTIVO de hoy contiene la hora actual
-      const turnosHoy = (l.horarios || []).filter(
-        (h) => h.dia_semana === hoy && h.estado === "ACTIVO"
-      );
-      const abierto = turnosHoy.some(
-        (h) => ahoraUTC >= h.hora_apertura && ahoraUTC < h.hora_cierre
-      );
+      const turnosHoy = (l.horarios || []).filter((h) => h.dia_semana === hoy && h.estado === "ACTIVO");
+      const abierto = turnosHoy.some((h) => ahoraUTC >= h.hora_apertura && ahoraUTC < h.hora_cierre);
 
       return {
         id_local: l.id_local,
@@ -167,7 +160,6 @@ async function obtenerTiposDeMesaPorLocal(ids: number[]): Promise<Map<number, st
       select: { id_local: true, tipo_mesa: true },
     });
   } catch {
-    // si hay error, devolvemos mapa vacío; el caller pondrá mensajes correspondientes
     return out;
   }
 

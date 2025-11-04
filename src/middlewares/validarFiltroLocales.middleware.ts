@@ -9,9 +9,27 @@ export type FiltroLocalesNormalizado = {
   lat: number;
   lng: number;
   radioKm: number;
-  tipoMesa?: TipoMesa;
+  tiposMesa?: TipoMesa[];  // ← lista de tipos (opcional)
   texto?: string;
 };
+
+function parseTipos(raw: unknown): TipoMesa[] | undefined {
+  const add = (acc: Set<TipoMesa>, v: string) => {
+    const up = v.trim().toUpperCase();
+    if ((TIPOS_PERMITIDOS as readonly string[]).includes(up)) acc.add(up as TipoMesa);
+  };
+  const set = new Set<TipoMesa>();
+
+  if (typeof raw === "string") {
+    // Soportamos un solo valor: ?tipos=POOL
+    add(set, raw);
+  } else if (Array.isArray(raw)) {
+    // Soportamos repetidos: ?tipos=POOL&tipos=SNOOKER&tipos=MIXTO
+    for (const item of raw) if (typeof item === "string") add(set, item);
+  }
+  const arr = Array.from(set);
+  return arr.length ? arr : undefined;
+}
 
 export function validarFiltroLocales(req: Request, res: Response, next: NextFunction) {
   try {
@@ -29,24 +47,18 @@ export function validarFiltroLocales(req: Request, res: Response, next: NextFunc
       lat = CENTRO_COCHABAMBA.lat;
       lng = CENTRO_COCHABAMBA.lng;
     }
-
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
       return res.status(400).json({ ok: false, message: "Coordenadas inválidas." });
     }
 
-    let tipoMesa: any = src.tipoMesa;
-    if (typeof tipoMesa === "string") {
-      tipoMesa = tipoMesa.trim().toUpperCase();
-      if (!TIPOS_PERMITIDOS.includes(tipoMesa)) tipoMesa = undefined;
-    } else {
-      tipoMesa = undefined;
-    }
-
+    const tiposMesa = parseTipos(src.tipos); // ← ÚNICO punto de entrada para tipos
     const texto = typeof src.texto === "string" ? src.texto.trim() : undefined;
 
     (req as any).filtroLocales = {
-      lat, lng, radioKm,
-      ...(tipoMesa ? { tipoMesa } : {}),
+      lat,
+      lng,
+      radioKm,
+      ...(tiposMesa ? { tiposMesa } : {}), // si no hay, no filtra por tipo
       ...(texto ? { texto } : {}),
     } as FiltroLocalesNormalizado;
 
