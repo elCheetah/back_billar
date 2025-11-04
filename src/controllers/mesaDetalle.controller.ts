@@ -6,24 +6,30 @@ import {
   MesaDetalleResponse,
 } from "../services/mesaDetalle.service";
 
-export async function obtenerMesasDelLocal(req: Request, res: Response) {
-  try {
-    const idLocal = (req as any).idLocal as number;
-    const data: MesasDelLocalResponse = await getMesasDelLocalActivas(idLocal);
-    return res.json({ ok: true, ...data });
-  } catch (e: any) {
-    const code = e?.code === "NOT_FOUND" ? 404 : 500;
-    return res.status(code).json({ ok: false, message: e?.message || "Error al obtener mesas del local." });
-  }
-}
+export const MesaDetalleController = {
+  // GET /api/locales/mesas-del-local/:idLocal
+  async mesasDelLocal(req: Request, res: Response) {
+    try {
+      const idLocal = (req as any).idLocal as number; // viene validado por middleware
+      const data: MesasDelLocalResponse = await getMesasDelLocalActivas(idLocal);
+      return res.json({ ok: true, data });
+    } catch (err: any) {
+      return res
+        .status(400)
+        .json({ ok: false, message: err?.message || "Error al obtener mesas del local." });
+    }
+  },
 
-export async function obtenerMesaPorId(req: Request, res: Response) {
-  try {
-    const idMesa = (req as any).idMesa as number;
-    const data: MesaDetalleResponse = await getMesaPorIdDetalle(idMesa);
-    return res.json({ ok: true, ...data });
-  } catch (e: any) {
-    const code = e?.code === "NOT_FOUND" ? 404 : 500;
-    return res.status(code).json({ ok: false, message: e?.message || "Error al obtener mesa." });
-  }
-}
+  // GET /api/locales/mesa/:idMesa
+  async mesaPorId(req: Request, res: Response) {
+    try {
+      const idMesa = (req as any).idMesa as number; // viene validado por middleware
+      const data: MesaDetalleResponse = await getMesaPorIdDetalle(idMesa);
+      return res.json({ ok: true, data });
+    } catch (err: any) {
+      return res
+        .status(400)
+        .json({ ok: false, message: err?.message || "Error al obtener mesa." });
+    }
+  },
+};

@@ -1,23 +1,22 @@
-import { NextFunction, Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
+import { param, validationResult } from "express-validator";
 
-export function validarIdLocal(req: Request, res: Response, next: NextFunction) {
-  if (req.method !== "GET") return res.status(405).json({ ok: false, message: "Método no permitido. Solo GET." });
-  const raw = req.params?.idLocal;
-  const id = Number(raw);
-  if (!raw || !/^\d+$/.test(raw) || !Number.isFinite(id) || id <= 0) {
-    return res.status(400).json({ ok: false, message: "idLocal inválido." });
+function resolverValidacion(req: Request, res: Response, _next: NextFunction) {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    const msg = errors.array()[0]?.msg || "Datos inválidos.";
+    return res.status(400).json({ ok: false, message: msg });
   }
-  (req as any).idLocal = id;
-  next();
+  _next();
 }
 
-export function validarIdMesa(req: Request, res: Response, next: NextFunction) {
-  if (req.method !== "GET") return res.status(405).json({ ok: false, message: "Método no permitido. Solo GET." });
-  const raw = req.params?.idMesa;
-  const id = Number(raw);
-  if (!raw || !/^\d+$/.test(raw) || !Number.isFinite(id) || id <= 0) {
-    return res.status(400).json({ ok: false, message: "idMesa inválido." });
-  }
-  (req as any).idMesa = id;
-  next();
-}
+// Mantén estos nombres porque así los importas en las rutas
+export const validarIdLocal = [
+  param("idLocal").isInt({ min: 1 }).withMessage("idLocal inválido."),
+  resolverValidacion,
+];
+
+export const validarIdMesa = [
+  param("idMesa").isInt({ min: 1 }).withMessage("idMesa inválido."),
+  resolverValidacion,
+];

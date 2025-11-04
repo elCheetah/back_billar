@@ -1,35 +1,37 @@
 import prisma from "../config/database";
 
-/** ===== Tipos de respuesta (DTOs) ===== */
+/* ======================= Tipos de respuesta (DTOs) ======================= */
+
 export type MesaResumenDTO = {
   id: number;
   numero_mesa: number;
-  tipo_mesa: string;     // enum DB tal cual
-  precio_hora: number;   // número bruto
-  estado: string;        // "DISPONIBLE" | "OCUPADO"
-  imagen: string | null; // SOLO primera imagen de la mesa (o null)
+  tipo_mesa: string;      // enum DB tal cual (POOL/CARAMBOLA/SNOOKER/MIXTO)
+  precio_hora: number;    // número
+  estado: string;         // "DISPONIBLE" | "OCUPADO"
+  imagen: string | null;  // PRIMERA imagen de la mesa (o null)
 };
 
 export type MesasDelLocalResponse = {
   idLocal: number;
-  imagenesLocal: string[]; // todas las imágenes del local (puede ser [])
+  imagenesLocal: string[];      // todas las imágenes del local (puede ser [])
   nombre: string;
   direccion: string;
-  contactolocal: string | null; // wa.me con nombre del local (o null)
-  mesas: MesaResumenDTO[];      // solo DISPONIBLE/OCUPADO
+  contactolocal: string | null; // wa.me con nombre del local (o null si no hay celular)
+  mesas: MesaResumenDTO[];      // solo mesas DISPONIBLE/OCUPADO
 };
 
 export type MesaDetalleResponse = {
   id: number;
-  nombre: string;        // "Mesa <numero_mesa>"
-  tipo_mesa: string;     // enum DB tal cual
-  precio_hora: number;   // número
-  estado: string;        // estado de la mesa (cualquiera de los 4 del enum)
-  imagenes: string[];    // todas las imágenes de esa mesa (puede ser [])
-  qrLocal: string | null; // qr_pago_url del local al que pertenece (puede ser null)
+  nombre: string;         // "Mesa <numero_mesa>"
+  tipo_mesa: string;      // enum DB tal cual
+  precio_hora: number;    // número
+  estado: string;         // cualquiera del enum EstadoMesa
+  imagenes: string[];     // TODAS las imágenes de la mesa (puede ser [])
+  qrLocal: string | null; // qr_pago_url del local (o null)
 };
 
-/** ===== Helpers internos ===== */
+/* ======================= Helpers internos ======================= */
+
 function digitsOnly(cel: string | null | undefined): string | null {
   if (!cel) return null;
   const d = cel.replace(/\D+/g, "");
@@ -38,15 +40,17 @@ function digitsOnly(cel: string | null | undefined): string | null {
 
 function waLink(digits: string | null, nombreLocal: string): string | null {
   if (!digits) return null;
-  const text = encodeURIComponent(`Hola, quiero consultar sobre reservas de billar del local ${nombreLocal}`);
+  const text = encodeURIComponent(
+    `Hola, quiero consultar sobre reservas de billar del local ${nombreLocal}`
+  );
   return `https://wa.me/${digits}?text=${text}`;
 }
 
-/** ===== Services ===== */
+/* ======================= Services ======================= */
 
 /**
- * Mesas del local: solo estados DISPONIBLE u OCUPADO.
- * También devuelve imágenes del local (todas) y link WhatsApp del propietario.
+ * Mesas del local: SOLO estados DISPONIBLE u OCUPADO.
+ * Devuelve también TODAS las imágenes del local y link de WhatsApp del propietario (si tiene celular).
  */
 export async function getMesasDelLocalActivas(idLocal: number): Promise<MesasDelLocalResponse> {
   const local = await prisma.local.findFirst({
@@ -72,22 +76,18 @@ export async function getMesasDelLocalActivas(idLocal: number): Promise<MesasDel
     },
   });
 
-  if (!local) {
-    const err: any = new Error("Local no encontrado o inactivo.");
-    err.code = "NOT_FOUND";
-    throw err;
-  }
+  if (!local) throw new Error("Local no encontrado o inactivo.");
 
-  const imagenesLocal = (local.imagenes || [])
+  const imagenesLocal: string[] = (local.imagenes ?? [])
     .map((i) => i.url_imagen)
     .filter((u): u is string => !!u);
 
-  const mesas: MesaResumenDTO[] = (local.mesas || []).map((m) => ({
+  const mesas: MesaResumenDTO[] = (local.mesas ?? []).map((m) => ({
     id: m.id_mesa,
     numero_mesa: m.numero_mesa,
     tipo_mesa: String(m.tipo_mesa),
     precio_hora: Number(m.precio_hora),
-    estado: String(m.estado), // solo DISPONIBLE u OCUPADO por el where
+    estado: String(m.estado), // ya filtradas a DISPONIBLE/OCUPADO
     imagen: m.imagenes?.[0]?.url_imagen ?? null,
   }));
 
@@ -105,7 +105,7 @@ export async function getMesasDelLocalActivas(idLocal: number): Promise<MesasDel
 }
 
 /**
- * Detalle de una mesa por id, con TODAS sus imágenes y el qr del local propietario.
+ * Detalle de una mesa por id: devuelve TODAS sus imágenes y el qr del local al que pertenece.
  */
 export async function getMesaPorIdDetalle(idMesa: number): Promise<MesaDetalleResponse> {
   const mesa = await prisma.mesa.findFirst({
@@ -117,17 +117,13 @@ export async function getMesaPorIdDetalle(idMesa: number): Promise<MesaDetalleRe
       precio_hora: true,
       estado: true,
       imagenes: { select: { url_imagen: true }, orderBy: { id_imagen: "asc" } }, // TODAS
-      local: { select: { qr_pago_url: true, nombre: true } }, // qr del local y nombre para nada más
+      local: { select: { qr_pago_url: true } }, // qr del local
     },
   });
 
-  if (!mesa) {
-    const err: any = new Error("Mesa no encontrada.");
-    err.code = "NOT_FOUND";
-    throw err;
-  }
+  if (!mesa) throw new Error("Mesa no encontrada.");
 
-  const imagenes = (mesa.imagenes || [])
+  const imagenes: string[] = (mesa.imagenes ?? [])
     .map((i) => i.url_imagen)
     .filter((u): u is string => !!u);
 
