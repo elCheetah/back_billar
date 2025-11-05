@@ -20,6 +20,7 @@ import miQrLocalRoutes from "./routes/miQrLocal.routes";
 import miDescuentoLocalRoutes from "./routes/miDescuentoLocal.routes";
 import datosLocal from "./routes/datosLocal.routes";
 import mesaDetalle from "./routes/mesaDetalle.routes";
+import horariosDisponiblesRoutes from "./routes/horasDisponibles.routes";
 
 
 const app = express();
@@ -67,6 +68,7 @@ app.use('/api/auth/recovery', passwordRecoveryRoutes);
 app.use('/api/registro', registroPropietarioRoutes);
 app.use('/api/registro', registroClienteRoutes);
 app.use('/api/mesas', mesasRoutes);
+app.use('/api/mesas', horariosDisponiblesRoutes);
 app.use("/api/horarios/local", horariosRoutes);
 app.use("/api/reservas", historialReservasRoutes);
 app.use("/api/perfil", perfilRoutes);
