@@ -1,3 +1,4 @@
+//utils/mailer.ts
 import { ENV } from './env';
 
 export async function enviarCorreoHTML(to: string, subject: string, html: string) {

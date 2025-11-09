@@ -21,7 +21,8 @@ import miDescuentoLocalRoutes from "./routes/miDescuentoLocal.routes";
 import datosLocal from "./routes/datosLocal.routes";
 import mesaDetalle from "./routes/mesaDetalle.routes";
 import horariosDisponiblesRoutes from "./routes/horasDisponibles.routes";
-
+import listaUsuariosRoutes from "./routes/listaUsuarios.routes";
+import listaLocalesRoutes from "./routes/listaLocales.routes";
 
 const app = express();
 
@@ -77,7 +78,8 @@ app.use("/api/local", miQrLocalRoutes);
 app.use("/api/local", miDescuentoLocalRoutes);
 app.use("/api/local", datosLocal);
 app.use("/api/mesasLocal", mesaDetalle);
-
+app.use("/api/listaUsuarios", listaUsuariosRoutes);
+app.use("/api/listaLocales", listaLocalesRoutes);
 
 
 // Solo levantar servidor en entorno local

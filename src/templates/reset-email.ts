@@ -1,3 +1,4 @@
+//templates/reset-email.ts
 export function resetEmailHTML(nombre: string, codigo: string, min: number) {
   // Mostrar como NNN-LLL para legibilidad (aceptamos sin guión en backend)
   const pretty = `${codigo.slice(0, 3)}-${codigo.slice(3)}`;
