@@ -24,7 +24,7 @@ import horariosDisponiblesRoutes from "./routes/horasDisponibles.routes";
 import listaUsuariosRoutes from "./routes/listaUsuarios.routes";
 import listaLocalesRoutes from "./routes/listaLocales.routes";
 import dashboardAdmin from "./routes/dashboardAdmin.routes";
-
+import dashboardPropietario from "./routes/dashboardPropietario.routes";
 
 
 const app = express();
@@ -84,6 +84,7 @@ app.use("/api/mesasLocal", mesaDetalle);
 app.use("/api/listaUsuarios", listaUsuariosRoutes);
 app.use("/api/listaLocales", listaLocalesRoutes);
 app.use("/api/dashboardAdmin", dashboardAdmin);
+app.use("/api/dashboardPropietario", dashboardPropietario);
 
 
 // Solo levantar servidor en entorno local
