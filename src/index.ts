@@ -72,7 +72,7 @@ app.use('/api/auth/recovery', passwordRecoveryRoutes);
 app.use('/api/registro', registroPropietarioRoutes);
 app.use('/api/registro', registroClienteRoutes);
 app.use('/api/mesas', mesasRoutes);
-app.use('/api/mesas', horariosDisponiblesRoutes);
+app.use('/api/mesa', horariosDisponiblesRoutes);
 app.use("/api/horarios/local", horariosRoutes);
 app.use("/api/reservas", historialReservasRoutes);
 app.use("/api/perfil", perfilRoutes);
