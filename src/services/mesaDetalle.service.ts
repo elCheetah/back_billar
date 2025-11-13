@@ -27,6 +27,7 @@ export type MesaDetalleResponse = {
   estado: string;
   imagenes: string[];
   qrLocal: string | null;
+  descuentoLocal: number; // porcentaje 0–100
 };
 
 function digitsOnly(cel: string | null | undefined): string | null {
@@ -37,11 +38,15 @@ function digitsOnly(cel: string | null | undefined): string | null {
 
 function waLink(digits: string | null, nombreLocal: string): string | null {
   if (!digits) return null;
-  const text = encodeURIComponent(`Hola, quiero consultar sobre reservas de billar del local ${nombreLocal}`);
+  const text = encodeURIComponent(
+    `Hola, quiero consultar sobre reservas de billar del local ${nombreLocal}`
+  );
   return `https://wa.me/${digits}?text=${text}`;
 }
 
-export async function getMesasDelLocalActivas(idLocal: number): Promise<MesasDelLocalResponse> {
+export async function getMesasDelLocalActivas(
+  idLocal: number
+): Promise<MesasDelLocalResponse> {
   const local = await prisma.local.findFirst({
     where: { id_local: idLocal, estado: "ACTIVO" },
     select: {
@@ -49,7 +54,10 @@ export async function getMesasDelLocalActivas(idLocal: number): Promise<MesasDel
       nombre: true,
       direccion: true,
       admin: { select: { celular: true } },
-      imagenes: { select: { url_imagen: true }, orderBy: { id_imagen: "asc" } },
+      imagenes: {
+        select: { url_imagen: true },
+        orderBy: { id_imagen: "asc" },
+      },
       mesas: {
         where: { estado: { in: ["DISPONIBLE", "OCUPADO"] } },
         select: {
@@ -58,7 +66,11 @@ export async function getMesasDelLocalActivas(idLocal: number): Promise<MesasDel
           tipo_mesa: true,
           precio_hora: true,
           estado: true,
-          imagenes: { select: { url_imagen: true }, orderBy: { id_imagen: "asc" }, take: 1 },
+          imagenes: {
+            select: { url_imagen: true },
+            orderBy: { id_imagen: "asc" },
+            take: 1,
+          },
         },
         orderBy: { numero_mesa: "asc" },
       },
@@ -67,9 +79,11 @@ export async function getMesasDelLocalActivas(idLocal: number): Promise<MesasDel
 
   if (!local) throw new Error("Local no encontrado o inactivo.");
 
-  const imagenesLocal = (local.imagenes ?? []).map(i => i.url_imagen).filter((u): u is string => !!u);
+  const imagenesLocal = (local.imagenes ?? [])
+    .map((i) => i.url_imagen)
+    .filter((u): u is string => !!u);
 
-  const mesas: MesaResumenDTO[] = (local.mesas ?? []).map(m => ({
+  const mesas: MesaResumenDTO[] = (local.mesas ?? []).map((m) => ({
     id: m.id_mesa,
     numero_mesa: m.numero_mesa,
     tipo_mesa: String(m.tipo_mesa),
@@ -91,7 +105,9 @@ export async function getMesasDelLocalActivas(idLocal: number): Promise<MesasDel
   };
 }
 
-export async function getMesaPorIdDetalle(idMesa: number): Promise<MesaDetalleResponse> {
+export async function getMesaPorIdDetalle(
+  idMesa: number
+): Promise<MesaDetalleResponse> {
   const mesa = await prisma.mesa.findFirst({
     where: { id_mesa: idMesa },
     select: {
@@ -100,14 +116,24 @@ export async function getMesaPorIdDetalle(idMesa: number): Promise<MesaDetalleRe
       tipo_mesa: true,
       precio_hora: true,
       estado: true,
-      imagenes: { select: { url_imagen: true }, orderBy: { id_imagen: "asc" } },
-      local: { select: { qr_pago_url: true } },
+      imagenes: {
+        select: { url_imagen: true },
+        orderBy: { id_imagen: "asc" },
+      },
+      local: {
+        select: {
+          qr_pago_url: true,
+          descuento_global: true, // 🔹 nuevo: descuento del local
+        },
+      },
     },
   });
 
   if (!mesa) throw new Error("Mesa no encontrada.");
 
-  const imagenes = (mesa.imagenes ?? []).map(i => i.url_imagen).filter((u): u is string => !!u);
+  const imagenes = (mesa.imagenes ?? [])
+    .map((i) => i.url_imagen)
+    .filter((u): u is string => !!u);
 
   return {
     id: mesa.id_mesa,
@@ -117,5 +143,6 @@ export async function getMesaPorIdDetalle(idMesa: number): Promise<MesaDetalleRe
     estado: String(mesa.estado),
     imagenes,
     qrLocal: mesa.local?.qr_pago_url ?? null,
+    descuentoLocal: mesa.local ? Number(mesa.local.descuento_global) : 0, // porcentaje 0–100
   };
 }
