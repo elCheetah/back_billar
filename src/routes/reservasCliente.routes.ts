@@ -4,16 +4,6 @@ import { ReservasClienteController } from "../controllers/reservasCliente.contro
 
 const router = Router();
 
-router.get(
-  "/pendientes",
-  auth,
-  ReservasClienteController.reservasPendientes
-);
-
-router.get(
-  "/confirmadas",
-  auth,
-  ReservasClienteController.reservasConfirmadas
-);
+router.get("/", auth, ReservasClienteController.listarMisReservas);
 
 export default router;

@@ -1,4 +1,4 @@
-import { PrismaClient, EstadoReserva } from "@prisma/client";
+import { PrismaClient, EstadoReserva, TipoMesa, Prisma } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -6,12 +6,15 @@ export interface ReservaClienteDTO {
   id_reserva: number;
   nombre_local: string;
   numero_mesa: number;
+  tipo_mesa: TipoMesa;
   monto_pagado: number;
   fecha_reserva: Date;
   hora_inicio: Date;
   duracion_horas: number;
   estado_reserva: EstadoReserva;
   penalizacion_sugerida: number;
+  monto_devolucion_sugerida: number;
+  celular_admin: string | null;
 }
 
 function combinarFechaYHora(fecha: Date, hora: Date): Date {
@@ -40,19 +43,26 @@ function calcularPenalizacionSugerida(
   return 0;
 }
 
-export async function listarReservasClientePorEstado(
-  idUsuario: number,
-  estado: EstadoReserva
+export async function listarReservasClientePendientesYConfirmadas(
+  idUsuario: number
 ): Promise<ReservaClienteDTO[]> {
+  const ahora = new Date();
+
   const reservas = await prisma.reserva.findMany({
     where: {
       id_usuario: idUsuario,
-      estado_reserva: estado,
+      estado_reserva: {
+        in: [EstadoReserva.PENDIENTE, EstadoReserva.CONFIRMADA],
+      },
     },
     include: {
       mesa: {
         include: {
-          local: true,
+          local: {
+            include: {
+              admin: true,
+            },
+          },
         },
       },
       pago: true,
@@ -63,7 +73,38 @@ export async function listarReservasClientePorEstado(
     ],
   });
 
-  return reservas.map((r) => {
+  const updates: Prisma.PrismaPromise<any>[] = [];
+  const resultado: ReservaClienteDTO[] = [];
+
+  for (const r of reservas) {
+    const finCompleto = combinarFechaYHora(r.fecha_reserva, r.hora_fin);
+    const limiteFin = new Date(finCompleto.getTime() + 5 * 60 * 1000);
+
+    let estadoCalculado = r.estado_reserva;
+    if (ahora >= limiteFin) {
+      estadoCalculado = EstadoReserva.FINALIZADA;
+    }
+
+    if (
+      estadoCalculado === EstadoReserva.FINALIZADA &&
+      r.estado_reserva !== EstadoReserva.FINALIZADA
+    ) {
+      updates.push(
+        prisma.reserva.update({
+          where: { id_reserva: r.id_reserva },
+          data: { estado_reserva: EstadoReserva.FINALIZADA },
+        })
+      );
+      continue;
+    }
+
+    if (
+      estadoCalculado !== EstadoReserva.PENDIENTE &&
+      estadoCalculado !== EstadoReserva.CONFIRMADA
+    ) {
+      continue;
+    }
+
     const duracionMs = r.hora_fin.getTime() - r.hora_inicio.getTime();
     const duracionHoras = duracionMs / (1000 * 60 * 60);
     const penalizacion_sugerida = calcularPenalizacionSugerida(
@@ -75,16 +116,32 @@ export async function listarReservasClientePorEstado(
       ? Number(r.pago.monto)
       : Number(r.monto_estimado ?? 0);
 
-    return {
+    const factor = 1 - penalizacion_sugerida / 100;
+    const monto_devolucion_sugerida = Number(
+      Math.max(0, monto_pagado * factor).toFixed(2)
+    );
+
+    const celular_admin = r.mesa.local.admin?.celular ?? null;
+
+    resultado.push({
       id_reserva: r.id_reserva,
       nombre_local: r.mesa.local.nombre,
       numero_mesa: r.mesa.numero_mesa,
+      tipo_mesa: r.mesa.tipo_mesa,
       monto_pagado,
       fecha_reserva: r.fecha_reserva,
       hora_inicio: r.hora_inicio,
       duracion_horas: duracionHoras,
-      estado_reserva: r.estado_reserva,
+      estado_reserva: estadoCalculado,
       penalizacion_sugerida,
-    };
-  });
+      monto_devolucion_sugerida,
+      celular_admin,
+    });
+  }
+
+  if (updates.length > 0) {
+    await prisma.$transaction(updates);
+  }
+
+  return resultado;
 }
