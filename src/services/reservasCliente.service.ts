@@ -1,3 +1,4 @@
+// src/services/reservasCliente.service.ts
 import { PrismaClient, EstadoReserva, TipoMesa, Prisma } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -32,9 +33,11 @@ function calcularPenalizacionSugerida(
   const inicio = combinarFechaYHora(fecha_reserva, hora_inicio);
   const fin = combinarFechaYHora(fecha_reserva, hora_fin);
 
+  // Dentro de la reserva o ya pasada -> 40%
   if (ahora >= inicio && ahora <= fin) return 40;
   if (ahora >= fin) return 40;
 
+  // Antes de iniciar: penalización según minutos restantes
   const diffMin = (inicio.getTime() - ahora.getTime()) / (1000 * 60);
 
   if (diffMin < 15) return 30;
@@ -43,7 +46,13 @@ function calcularPenalizacionSugerida(
   return 0;
 }
 
-export async function listarReservasClientePendientesYConfirmadas(
+/**
+ * Lista única de reservas del cliente:
+ * - Solo estados PENDIENTE y CONFIRMADA
+ * - Auto-finaliza si ya pasaron 5 minutos después de hora_fin
+ * - Ordenado por fecha_reserva y hora_inicio ascendente
+ */
+export async function listarMisReservasCliente(
   idUsuario: number
 ): Promise<ReservaClienteDTO[]> {
   const ahora = new Date();
@@ -60,7 +69,7 @@ export async function listarReservasClientePendientesYConfirmadas(
         include: {
           local: {
             include: {
-              admin: true,
+              admin: true, // para celular del dueño
             },
           },
         },
@@ -73,18 +82,21 @@ export async function listarReservasClientePendientesYConfirmadas(
     ],
   });
 
-  const updates: Prisma.PrismaPromise<any>[] = [];
+  const updates: Prisma.PrismaPromise<unknown>[] = [];
   const resultado: ReservaClienteDTO[] = [];
 
   for (const r of reservas) {
     const finCompleto = combinarFechaYHora(r.fecha_reserva, r.hora_fin);
-    const limiteFin = new Date(finCompleto.getTime() + 5 * 60 * 1000);
+    const limiteFin = new Date(finCompleto.getTime() + 5 * 60 * 1000); // +5 minutos
 
     let estadoCalculado = r.estado_reserva;
+
+    // Si ya pasó 5 min después de la hora fin -> FINALIZADA
     if (ahora >= limiteFin) {
       estadoCalculado = EstadoReserva.FINALIZADA;
     }
 
+    // Si pasó a FINALIZADA y en BD aún no está, se actualiza en segundo plano
     if (
       estadoCalculado === EstadoReserva.FINALIZADA &&
       r.estado_reserva !== EstadoReserva.FINALIZADA
@@ -95,9 +107,11 @@ export async function listarReservasClientePendientesYConfirmadas(
           data: { estado_reserva: EstadoReserva.FINALIZADA },
         })
       );
+      // Ya no se devuelve al cliente
       continue;
     }
 
+    // Solo devolvemos PENDIENTE y CONFIRMADA
     if (
       estadoCalculado !== EstadoReserva.PENDIENTE &&
       estadoCalculado !== EstadoReserva.CONFIRMADA
@@ -107,11 +121,13 @@ export async function listarReservasClientePendientesYConfirmadas(
 
     const duracionMs = r.hora_fin.getTime() - r.hora_inicio.getTime();
     const duracionHoras = duracionMs / (1000 * 60 * 60);
+
     const penalizacion_sugerida = calcularPenalizacionSugerida(
       r.fecha_reserva,
       r.hora_inicio,
       r.hora_fin
     );
+
     const monto_pagado = r.pago
       ? Number(r.pago.monto)
       : Number(r.monto_estimado ?? 0);
