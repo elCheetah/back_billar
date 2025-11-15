@@ -3,6 +3,7 @@ import { PrismaClient, EstadoReserva } from "@prisma/client";
 const prisma = new PrismaClient();
 
 export interface ReservaClienteDTO {
+  id_reserva: number;
   nombre_local: string;
   numero_mesa: number;
   monto_pagado: number;
@@ -75,6 +76,7 @@ export async function listarReservasClientePorEstado(
       : Number(r.monto_estimado ?? 0);
 
     return {
+      id_reserva: r.id_reserva,
       nombre_local: r.mesa.local.nombre,
       numero_mesa: r.mesa.numero_mesa,
       monto_pagado,
