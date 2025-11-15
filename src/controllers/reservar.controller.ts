@@ -88,7 +88,7 @@ export class ReservarController {
       console.error("Error al crear reserva:", error);
       return res.status(500).json({
         ok: false,
-        message: "Ocurrió un error al registrar la reserva.",
+        message: msg, 
       });
     }
   }
