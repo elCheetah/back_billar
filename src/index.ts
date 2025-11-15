@@ -86,7 +86,7 @@ app.use("/api/listaUsuarios", listaUsuariosRoutes);
 app.use("/api/listaLocales", listaLocalesRoutes);
 app.use("/api/dashboardAdmin", dashboardAdmin);
 app.use("/api/dashboardPropietario", dashboardPropietario);
-app.use("/api/reservas", reservarRoutes);
+app.use("/api/reservar", reservarRoutes);
 
 
 // Solo levantar servidor en entorno local
