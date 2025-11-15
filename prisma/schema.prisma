@@ -126,10 +126,10 @@ model Pago {
   fecha_confirmacion   DateTime?
   estado_pago          EstadoPago  @default(PENDIENTE)
 
-  reembolso_estado     EstadoReembolso @default(NO_REEMBOLSADO)
-  monto_reembolsado    Decimal?     @db.Decimal(10,2)
-  fecha_reembolso      DateTime?
-  comprobante_reembolso_url String? @db.VarChar(255)
+  estado_reembolso          EstadoReembolso @default(NO_REEMBOLSADO) @map("estado_reembolso")
+  fecha_reembolso           DateTime?       @map("fecha_reembolso")
+  monto_reembolsado         Decimal?        @db.Decimal(10,2) @map("monto_reembolsado")
+  comprobante_reembolso_url String?         @db.VarChar(255) @map("comprobante_reembolso_url")
 
   usuario  Usuario @relation(fields: [id_usuario], references: [id_usuario])
   reserva  Reserva @relation("ReservaPago", fields: [id_reserva], references: [id_reserva])
@@ -137,6 +137,7 @@ model Pago {
   @@index([id_usuario])
   @@index([estado_pago])
 }
+
 model Penalizacion {
   id_penalizacion    Int                 @id @default(autoincrement())
   id_usuario         Int
