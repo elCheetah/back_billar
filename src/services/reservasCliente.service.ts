@@ -5,6 +5,7 @@ const prisma = new PrismaClient();
 
 export interface ReservaClienteDTO {
   id_reserva: number;
+  id_mesa: number;
   nombre_local: string;
   numero_mesa: number;
   tipo_mesa: TipoMesa;
@@ -76,10 +77,7 @@ export async function listarMisReservasCliente(
       },
       pago: true,
     },
-    orderBy: [
-      { fecha_reserva: "asc" },
-      { hora_inicio: "asc" },
-    ],
+    orderBy: [{ fecha_reserva: "asc" }, { hora_inicio: "asc" }],
   });
 
   const updates: Prisma.PrismaPromise<unknown>[] = [];
@@ -141,6 +139,7 @@ export async function listarMisReservasCliente(
 
     resultado.push({
       id_reserva: r.id_reserva,
+      id_mesa: r.mesa.id_mesa,
       nombre_local: r.mesa.local.nombre,
       numero_mesa: r.mesa.numero_mesa,
       tipo_mesa: r.mesa.tipo_mesa,
