@@ -16,11 +16,13 @@ export function validarCancelarReserva(
 
   const errores: string[] = [];
 
+  // id_reserva debe ser entero positivo
   const idNum = Number(id_reserva);
   if (!id_reserva || Number.isNaN(idNum) || idNum <= 0 || !Number.isInteger(idNum)) {
-    errores.push("El parámetro id_reserva debe ser un entero positivo.");
+    errores.push("El parámetro 'id_reserva' debe ser un entero positivo.");
   }
 
+  // monto_penalizacion_aplicada requerido, número >= 0
   if (
     monto_penalizacion_aplicada === undefined ||
     monto_penalizacion_aplicada === null
@@ -35,6 +37,7 @@ export function validarCancelarReserva(
     }
   }
 
+  // qr_base64 requerido, dataURI de imagen
   if (
     !qr_base64 ||
     typeof qr_base64 !== "string" ||
@@ -48,7 +51,7 @@ export function validarCancelarReserva(
   if (errores.length) {
     return res.status(400).json({
       ok: false,
-      mensaje: "Datos inválidos para cancelar la reserva.",
+      message: "Datos inválidos para cancelar la reserva.",
       errores,
     });
   }
@@ -58,5 +61,5 @@ export function validarCancelarReserva(
     qr_base64,
   } as CancelarReservaBody;
 
-  next();
+  return next();
 }
