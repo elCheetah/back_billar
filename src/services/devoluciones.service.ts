@@ -40,7 +40,6 @@ export async function listarDevolucionesPendientesPropietario(
   const pagos = await prisma.pago.findMany({
     where: {
       estado_reembolso: EstadoReembolso.NO_REEMBOLSADO,
-      estado_pago: EstadoPago.APROBADO,
       reserva: {
         estado_reserva: EstadoReserva.CANCELADA,
         mesa: {
