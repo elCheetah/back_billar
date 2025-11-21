@@ -6,13 +6,13 @@ import { requireAuth } from "../middlewares/auth.middleware";
 const router = Router();
 
 router.get(
-  "/canceladas",
+  "/pendientes",
   requireAuth,
   DevolucionesController.listarPendientes
 );
 
 router.patch(
-  "/:id_reserva",
+  "/reembolsar/:id_reserva",
   validarRegistrarReembolso,
   DevolucionesController.registrarReembolso
 );
