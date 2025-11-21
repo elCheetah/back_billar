@@ -28,6 +28,9 @@ import dashboardPropietario from "./routes/dashboardPropietario.routes";
 import reservarRoutes from "./routes/reservar.routes";
 import reservasClienteRoutes from "./routes/reservasCliente.routes";
 import cancelarReserva from "./routes/cancelarReserva.routes";
+import editarReserva from "./routes/editarReserva.routes";
+
+
 
 const app = express();
 
@@ -90,6 +93,7 @@ app.use("/api/dashboardPropietario", dashboardPropietario);
 app.use("/api/reservar", reservarRoutes);
 app.use("/api/misReservas", reservasClienteRoutes);
 app.use("/api/cancelarReserva", cancelarReserva);
+app.use("/api/editarReserva", editarReserva);
 
 // Solo levantar servidor en entorno local
 if (process.env.NODE_ENV !== 'production') {
