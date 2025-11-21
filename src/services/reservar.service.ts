@@ -179,7 +179,7 @@ export async function crearReservaConPago(
           hora_fin: horaFinDate,
           monto_estimado: montoEstimado,
           estado_reserva: EstadoReserva.PENDIENTE,
-          penalizacion_aplicada: 0,
+          monto_penalizacion_aplicada: 0,
         },
       });
 

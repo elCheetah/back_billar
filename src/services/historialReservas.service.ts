@@ -48,15 +48,15 @@ function round2(n: number) {
 
 /**
  * Calcula monto de penalización para una reserva CANCELADA.
- * - porcentaje: reserva.penalizacion_aplicada (si null -> 0)
+ * - porcentaje: reserva.monto_penalizacion_aplicada (si null -> 0)
  * - base: reserva.monto_estimado (si null -> 0)
  * - monto = base * (porcentaje/100)
  */
 function calcularPenalCancelada(reserva: {
-  penalizacion_aplicada: any | null;
+  monto_penalizacion_aplicada: any | null;
   monto_estimado: any | null;
 }) {
-  const porcentaje = Number(reserva.penalizacion_aplicada ?? 0);
+  const porcentaje = Number(reserva.monto_penalizacion_aplicada ?? 0);
   const base = Number(reserva.monto_estimado ?? 0);
   const monto = round2(base * (porcentaje / 100));
   return { porcentaje, monto };
