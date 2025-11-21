@@ -1,10 +1,8 @@
-// src/services/editarReserva.service.ts
 import prisma from "../config/database";
 import { EstadoReserva } from "@prisma/client";
 
 type EditarReservaInput = {
   id_reserva: number;
-  id_usuario: number;
   fecha_reserva: string; // "YYYY-MM-DD"
   hora_inicio: string;   // "HH:mm"
 };
@@ -17,7 +15,7 @@ function construirFechaHora(fecha: string, hora: string): Date {
 }
 
 export async function editarReservaService(input: EditarReservaInput) {
-  const { id_reserva, id_usuario, fecha_reserva, hora_inicio } = input;
+  const { id_reserva, fecha_reserva, hora_inicio } = input;
 
   const reserva = await prisma.reserva.findUnique({
     where: { id_reserva },
@@ -34,11 +32,7 @@ export async function editarReservaService(input: EditarReservaInput) {
     throw new Error("RESERVA_NO_ENCONTRADA: La reserva especificada no existe.");
   }
 
-  if (reserva.id_usuario !== id_usuario) {
-    throw new Error(
-      "RESERVA_NO_PROPIA: La reserva no pertenece al usuario autenticado."
-    );
-  }
+  // YA NO SE VALIDA USUARIO (SIN AUTENTICACIÓN)
 
   if (
     reserva.estado_reserva === EstadoReserva.CANCELADA ||
@@ -61,6 +55,7 @@ export async function editarReservaService(input: EditarReservaInput) {
     );
   }
 
+  // Duración actual (se mantiene igual)
   const duracionMs =
     reserva.hora_fin.getTime() - reserva.hora_inicio.getTime();
 
@@ -74,6 +69,7 @@ export async function editarReservaService(input: EditarReservaInput) {
   const nuevaHoraInicio = construirFechaHora(fecha_reserva, hora_inicio);
   const nuevaHoraFin = new Date(nuevaHoraInicio.getTime() + duracionMs);
 
+  // Verificar solapamiento con otras reservas activas de la misma mesa
   const reservaConflicto = await prisma.reserva.findFirst({
     where: {
       id_mesa: reserva.id_mesa,
@@ -99,6 +95,7 @@ export async function editarReservaService(input: EditarReservaInput) {
     );
   }
 
+  // Verificar bloqueos de mesa
   const bloqueoConflicto = await prisma.bloqueoMesa.findFirst({
     where: {
       id_mesa: reserva.id_mesa,

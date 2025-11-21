@@ -1,4 +1,3 @@
-// src/routes/editarReserva.routes.ts
 import { Router } from "express";
 import { EditarReservaController } from "../controllers/editarReserva.controller";
 import { validarEditarReserva } from "../middlewares/editarReserva.middlewares";

@@ -1,29 +1,11 @@
-// src/controllers/editarReserva.controller.ts
 import { Request, Response } from "express";
 import { editarReservaService } from "../services/editarReserva.service";
 import { EditarReservaBody } from "../middlewares/editarReserva.middlewares";
-import { JwtPayloadUser } from "../types/auth";
 
 export class EditarReservaController {
   // PATCH /api/editarReserva/:id_reserva
   static async editarReserva(req: Request, res: Response) {
     try {
-      const user = (req as any).user as JwtPayloadUser | undefined;
-
-      if (!user?.id || !user?.rol) {
-        return res.status(401).json({
-          ok: false,
-          message: "No autenticado.",
-        });
-      }
-
-      if (user.rol !== "CLIENTE") {
-        return res.status(403).json({
-          ok: false,
-          message: "Solo los clientes pueden reprogramar reservas.",
-        });
-      }
-
       const { id_reserva } = req.params;
       const payload = (req as any).editarReservaPayload as
         | EditarReservaBody
@@ -39,7 +21,6 @@ export class EditarReservaController {
 
       const reservaActualizada = await editarReservaService({
         id_reserva: Number(id_reserva),
-        id_usuario: user.id,
         fecha_reserva: payload.fecha_reserva,
         hora_inicio: payload.hora_inicio,
       });
@@ -56,14 +37,6 @@ export class EditarReservaController {
         return res.status(404).json({
           ok: false,
           message: "La reserva especificada no existe.",
-        });
-      }
-
-      if (msg.startsWith("RESERVA_NO_PROPIA")) {
-        return res.status(403).json({
-          ok: false,
-          message:
-            "La reserva no pertenece al usuario autenticado.",
         });
       }
 

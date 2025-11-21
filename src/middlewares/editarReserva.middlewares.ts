@@ -1,4 +1,3 @@
-// src/middlewares/editarReserva.middlewares.ts
 import { Request, Response, NextFunction } from "express";
 
 export interface EditarReservaBody {
