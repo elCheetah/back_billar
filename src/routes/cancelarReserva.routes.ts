@@ -5,10 +5,6 @@ import { validarCancelarReserva } from "../middlewares/validarCancelarReserva.mi
 
 const router = Router();
 
-router.patch(
-  "/:id_reserva",
-  validarCancelarReserva,
-  cancelarReservaController
-);
+router.patch("/:id_reserva", validarCancelarReserva, cancelarReservaController);
 
 export default router;

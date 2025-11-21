@@ -1,6 +1,11 @@
 // src/middlewares/validarCancelarReserva.middleware.ts
 import { Request, Response, NextFunction } from "express";
 
+export interface CancelarReservaBody {
+  monto_penalizacion_aplicada: number;
+  qr_base64: string;
+}
+
 export function validarCancelarReserva(
   req: Request,
   res: Response,
@@ -11,13 +16,11 @@ export function validarCancelarReserva(
 
   const errores: string[] = [];
 
-  // id_reserva debe ser entero positivo
   const idNum = Number(id_reserva);
   if (!id_reserva || Number.isNaN(idNum) || idNum <= 0 || !Number.isInteger(idNum)) {
     errores.push("El parámetro id_reserva debe ser un entero positivo.");
   }
 
-  // monto_penalizacion_aplicada requerido, número >= 0
   if (
     monto_penalizacion_aplicada === undefined ||
     monto_penalizacion_aplicada === null
@@ -32,7 +35,6 @@ export function validarCancelarReserva(
     }
   }
 
-  // qr_base64 requerido, MISMA LÓGICA QUE reservar: debe ser dataURI de imagen
   if (
     !qr_base64 ||
     typeof qr_base64 !== "string" ||
@@ -50,6 +52,11 @@ export function validarCancelarReserva(
       errores,
     });
   }
+
+  (req as any).cancelarPayload = {
+    monto_penalizacion_aplicada: Number(monto_penalizacion_aplicada),
+    qr_base64,
+  } as CancelarReservaBody;
 
   next();
 }

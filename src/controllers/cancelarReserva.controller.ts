@@ -5,20 +5,50 @@ import { cancelarReservaService } from "../services/cancelarReserva.service";
 export async function cancelarReservaController(req: Request, res: Response) {
   try {
     const { id_reserva } = req.params;
-    const { monto_penalizacion_aplicada, qr_base64 } = req.body;
+    const { monto_penalizacion_aplicada, qr_base64 } = req.body ?? {};
 
-    const result = await cancelarReservaService({
+    const data = await cancelarReservaService({
       id_reserva: Number(id_reserva),
       monto_penalizacion_aplicada: Number(monto_penalizacion_aplicada),
       qr_base64,
     });
 
-    return res.status(result.statusCode).json(result);
-  } catch (error) {
-    console.error("Error en cancelarReservaController:", error);
+    return res.status(200).json({
+      ok: true,
+      mensaje:
+        "Reserva cancelada correctamente. Se registró el QR para reembolso y la penalización aplicada.",
+      data,
+    });
+  } catch (error: any) {
+    const msg: string = error?.message || "Error interno del servidor.";
+
+    if (msg.startsWith("RESERVA_NO_ENCONTRADA")) {
+      return res.status(404).json({
+        ok: false,
+        mensaje: "La reserva no existe.",
+      });
+    }
+
+    if (msg.startsWith("RESERVA_NO_CANCELABLE")) {
+      return res.status(409).json({
+        ok: false,
+        mensaje:
+          "La reserva ya no puede ser cancelada (ya está cancelada o finalizada).",
+      });
+    }
+
+    if (msg.startsWith("PAGO_NO_ENCONTRADO")) {
+      return res.status(409).json({
+        ok: false,
+        mensaje:
+          "La reserva no tiene un pago asociado, no es posible registrar QR de reembolso.",
+      });
+    }
+
+    console.error("Error al cancelar reserva:", error);
     return res.status(500).json({
       ok: false,
-      mensaje: "Ocurrió un error inesperado al cancelar la reserva.",
+      mensaje: msg,
     });
   }
 }
