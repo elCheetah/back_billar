@@ -1,9 +1,6 @@
 // src/services/mesasEnUso.service.ts
 import prisma from "../config/database";
-import {
-  EstadoReserva,
-  EstadoMesa,
-} from "@prisma/client";
+import { EstadoReserva, EstadoMesa } from "@prisma/client";
 
 export type MesaEnUsoDTO = {
   id_reserva: number;
@@ -24,26 +21,18 @@ function calcularDuracionHoras(horaInicio: Date, horaFin: Date): number {
   return diffMs / (1000 * 60 * 60);
 }
 
-/**
- * Lista las mesas en uso (OCUPADO) del local del propietario autenticado,
- * SOLO para reservas de HOY, con estado PENDIENTE o CONFIRMADA.
- */
 export async function listarMesasEnUsoPropietario(
   idUsuarioPropietario: number
 ): Promise<MesaEnUsoDTO[]> {
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
+  const ownerId = Number(idUsuarioPropietario);
+  if (!Number.isFinite(ownerId)) return [];
 
   const reservas = await prisma.reserva.findMany({
     where: {
-      fecha_reserva: hoy,
-      estado_reserva: {
-        in: [EstadoReserva.PENDIENTE, EstadoReserva.CONFIRMADA],
-      },
+      estado_reserva: EstadoReserva.CONFIRMADA,
       mesa: {
-        estado: EstadoMesa.OCUPADO,
         local: {
-          id_usuario_admin: idUsuarioPropietario,
+          id_usuario_admin: ownerId,
         },
       },
     },
@@ -57,11 +46,11 @@ export async function listarMesasEnUsoPropietario(
       pago: {
         select: {
           monto: true,
-          estado_pago: true,
         },
       },
     },
     orderBy: [
+      { fecha_reserva: "asc" },
       { hora_inicio: "asc" },
       { id_reserva: "asc" },
     ],
@@ -77,10 +66,7 @@ export async function listarMesasEnUsoPropietario(
     const local = mesa.local;
 
     const duracion_horas = calcularDuracionHoras(r.hora_inicio, r.hora_fin);
-
-    // monto_pagado desde Pago (si existe y está aprobado), o 0 si no
-    const pago = r.pago;
-    const monto_pagado = pago ? Number(pago.monto) : 0;
+    const monto_pagado = r.pago ? Number(r.pago.monto) : 0;
 
     const nombre_cliente = `${cliente.primer_apellido}${
       cliente.segundo_apellido ? " " + cliente.segundo_apellido : ""
@@ -100,6 +86,7 @@ export async function listarMesasEnUsoPropietario(
     };
   });
 }
+
 
 /**
  * Finaliza una reserva (estado_reserva → FINALIZADA) y libera la mesa (estado_mesa → DISPONIBLE),

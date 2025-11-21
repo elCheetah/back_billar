@@ -99,7 +99,7 @@ app.use("/api/cancelarReserva", cancelarReserva);
 app.use("/api/editarReserva", editarReserva);
 app.use("/api/devoluciones", devoluciones);
 app.use("/api/mesasEnUso", mesasEnUso);
-app.use("/api/solicitudesReservas", mesasEnUso);
+app.use("/api/solicitudesReservas", solicitudesReservas);
 
 
 

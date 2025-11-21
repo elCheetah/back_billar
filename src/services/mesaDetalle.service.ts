@@ -1,6 +1,6 @@
 // src/services/mesaDetalle.service.ts
 import prisma from "../config/database";
-
+import {horaActualAncladaUTC} from "../utils/hora";
 export type MesaResumenDTO = {
   id: number;
   numero_mesa: number;
@@ -83,7 +83,10 @@ export async function getMesasDelLocalActivas(
     .map((i) => i.url_imagen)
     .filter((u): u is string => !!u);
 
-  const mesas: MesaResumenDTO[] = (local.mesas ?? []).map((m) => ({
+  const cel = digitsOnly(local.admin?.celular ?? null);
+  const contacto = waLink(cel, local.nombre);
+
+  const mesasBase: MesaResumenDTO[] = (local.mesas ?? []).map((m) => ({
     id: m.id_mesa,
     numero_mesa: m.numero_mesa,
     tipo_mesa: String(m.tipo_mesa),
@@ -92,8 +95,35 @@ export async function getMesasDelLocalActivas(
     imagen: m.imagenes?.[0]?.url_imagen ?? null,
   }));
 
-  const cel = digitsOnly(local.admin?.celular ?? null);
-  const contacto = waLink(cel, local.nombre);
+  if (mesasBase.length === 0) {
+    return {
+      idLocal: local.id_local,
+      imagenesLocal,
+      nombre: local.nombre,
+      direccion: local.direccion,
+      contactolocal: contacto,
+      mesas: [],
+    };
+  }
+
+  const ahoraHoraAnclada = horaActualAncladaUTC();
+
+  const reservasActivasAhora = await prisma.reserva.findMany({
+    where: {
+      id_mesa: { in: mesasBase.map((m) => m.id) },
+      estado_reserva: "CONFIRMADA",
+      hora_inicio: { lte: ahoraHoraAnclada },
+      hora_fin: { gt: ahoraHoraAnclada },
+    },
+    select: { id_mesa: true },
+  });
+
+  const ocupadasSet = new Set(reservasActivasAhora.map((r) => r.id_mesa));
+
+  const mesas: MesaResumenDTO[] = mesasBase.map((m) => ({
+    ...m,
+    estado: ocupadasSet.has(m.id) ? "OCUPADO" : "DISPONIBLE",
+  }));
 
   return {
     idLocal: local.id_local,
@@ -104,6 +134,7 @@ export async function getMesasDelLocalActivas(
     mesas,
   };
 }
+
 
 export async function getMesaPorIdDetalle(
   idMesa: number

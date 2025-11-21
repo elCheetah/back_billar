@@ -1,3 +1,4 @@
+//types/auth.ts
 export type Rol = "CLIENTE" | "PROPIETARIO" | "ADMINISTRADOR";
 
 export interface JwtPayloadUser {
