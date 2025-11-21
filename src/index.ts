@@ -31,6 +31,7 @@ import cancelarReserva from "./routes/cancelarReserva.routes";
 import editarReserva from "./routes/editarReserva.routes";
 import devoluciones from "./routes/devoluciones.routes";
 import mesasEnUso from "./routes/mesasEnUso.routes";
+import solicitudesReservas from "./routes/solicitudesReservas.routes";
 
 
 
@@ -98,7 +99,7 @@ app.use("/api/cancelarReserva", cancelarReserva);
 app.use("/api/editarReserva", editarReserva);
 app.use("/api/devoluciones", devoluciones);
 app.use("/api/mesasEnUso", mesasEnUso);
-
+app.use("/api/solicitudesReservas", mesasEnUso);
 
 
 
