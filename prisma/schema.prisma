@@ -103,7 +103,7 @@ model Reserva {
   hora_fin              DateTime      @db.Time
   monto_estimado        Decimal?      @db.Decimal(10,2)         // precio_hora * horas - descuento + %penalizacion
   estado_reserva        EstadoReserva @default(PENDIENTE)
-  penalizacion_aplicada Decimal?      @db.Decimal(5,2) @default(0) // % aplicado
+  monto_penalizacion_aplicada Decimal? @db.Decimal(10,2) @default(0) // monto aplicado
   fecha_creacion        DateTime      @default(now())
   fecha_modificacion    DateTime      @updatedAt
 
@@ -129,6 +129,7 @@ model Pago {
   estado_reembolso          EstadoReembolso @default(NO_REEMBOLSADO) @map("estado_reembolso")
   fecha_reembolso           DateTime?       @map("fecha_reembolso")
   monto_reembolsado         Decimal?        @db.Decimal(10,2) @map("monto_reembolsado")
+  qr_para_reembolso         String?         @db.VarChar(255) @map("qr_para_reembolso")
   comprobante_reembolso_url String?         @db.VarChar(255) @map("comprobante_reembolso_url")
 
   usuario  Usuario @relation(fields: [id_usuario], references: [id_usuario])
