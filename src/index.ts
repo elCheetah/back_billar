@@ -30,6 +30,7 @@ import reservasClienteRoutes from "./routes/reservasCliente.routes";
 import cancelarReserva from "./routes/cancelarReserva.routes";
 import editarReserva from "./routes/editarReserva.routes";
 import devoluciones from "./routes/devoluciones.routes";
+import mesasEnUso from "./routes/mesasEnUso.routes";
 
 
 
@@ -96,6 +97,10 @@ app.use("/api/misReservas", reservasClienteRoutes);
 app.use("/api/cancelarReserva", cancelarReserva);
 app.use("/api/editarReserva", editarReserva);
 app.use("/api/devoluciones", devoluciones);
+app.use("/api/mesasEnUso", mesasEnUso);
+
+
+
 
 // Solo levantar servidor en entorno local
 if (process.env.NODE_ENV !== 'production') {
